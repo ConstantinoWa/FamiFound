@@ -9,8 +9,9 @@
 <title>FamiFound</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{background:#0d1f2d;color:#e8f4fd;font-family:system-ui,sans-serif;height:100vh;overflow:hidden;}
-#app{display:flex;flex-direction:column;height:100vh;}
+html{height:100%;}
+body{background:#0d1f2d;color:#e8f4fd;font-family:system-ui,sans-serif;height:100%;overflow:hidden;}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
 #scr{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:13px 13px 20px;}
 nav{display:flex;background:#152536;border-top:1px solid #243d55;flex-shrink:0;}
 .nt{flex:1;padding:7px 4px 10px;text-align:center;font-size:.68rem;cursor:pointer;color:#6a8fa8;border-top:2px solid transparent;user-select:none;}
@@ -66,7 +67,7 @@ textarea{resize:none;height:52px;}
 <body>
 <div id="app">
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04070944</div>
+    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04071015</div>
     <div style="display:flex;align-items:center;gap:2px;">
       <button id="prev-mo" style="background:none;border:none;color:#00d4aa;font-size:1.3rem;cursor:pointer;padding:2px 8px;">‹</button>
       <span id="mo-lbl" style="font-family:monospace;font-size:.82rem;min-width:66px;text-align:center;"></span>
@@ -127,7 +128,12 @@ let S={
   persType:'income', persCat:null, persAmt:0, persNote:'',
   armedDel:{},
 };
-function save(key,val){S[key]=val;LS.set('fm_'+key,val);}
+function save(key,val){
+  // 對應短 key，與讀取時一致
+  const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras',personal:'pers'};
+  S[key]=val;
+  LS.set('fm_'+(KM[key]||key),val);
+}
 function mkey(){return S.yr+'-'+pad(S.mo);}
 // 是否為當月（唯讀判斷）
 function isCurrent(){return S.yr===TODAY_YR&&S.mo===TODAY_MO;}
@@ -873,6 +879,14 @@ document.getElementById('nav').addEventListener('click',e=>{
 });
 
 // ════ 啟動 ══════════════════════════════════════════════
+// 修正手機瀏覽器 100vh 問題（底部工具列會遮住導航列）
+function fixVH(){
+  const vh=window.innerHeight*0.01;
+  document.documentElement.style.setProperty('--vh',''+vh+'px');
+  document.getElementById('app').style.height=window.innerHeight+'px';
+}
+window.addEventListener('resize',fixVH);
+fixVH();
 render();
 </script>
 </body>
