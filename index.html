@@ -67,7 +67,7 @@ textarea{resize:none;height:52px;}
 <body>
 <div id="app">
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04071015</div>
+    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04071957</div>
     <div style="display:flex;align-items:center;gap:2px;">
       <button id="prev-mo" style="background:none;border:none;color:#00d4aa;font-size:1.3rem;cursor:pointer;padding:2px 8px;">‹</button>
       <span id="mo-lbl" style="font-family:monospace;font-size:.82rem;min-width:66px;text-align:center;"></span>
@@ -102,9 +102,9 @@ const DEF_CATS=[
   {id:3,name:'旅遊',icon:'✈️',defPP:5000},{id:4,name:'汽車',icon:'🚗',defPP:3000},
   {id:5,name:'房子',icon:'🏗️',defPP:3500},{id:6,name:'其他',icon:'📦',defPP:0},
 ];
-const EXP_TYPES=[{i:'🍽️',l:'飲食'},{i:'👗',l:'服飾'},{i:'🏠',l:'居家'},{i:'🚗',l:'交通'},{i:'💊',l:'醫療'},{i:'🎮',l:'娛樂'},{i:'🛒',l:'購物'},{i:'📦',l:'其他'}];
+const EXP_TYPES=[{i:'🍽️',l:'飲食'},{i:'🏠',l:'居家'},{i:'🚗',l:'交通'},{i:'🎮',l:'娛樂'},{i:'💊',l:'醫療'},{i:'📱',l:'通訊'},{i:'📚',l:'進修'},{i:'📦',l:'其他'}];
 const P_INC=[{i:'💰',l:'薪資'},{i:'🏆',l:'獎金'},{i:'📈',l:'投資'},{i:'🎁',l:'紅包'},{i:'💼',l:'兼差'},{i:'📦',l:'其他'}];
-const P_EXP=[{i:'🍽️',l:'飲食'},{i:'👗',l:'服飾'},{i:'🚗',l:'交通'},{i:'💊',l:'醫療'},{i:'🎮',l:'娛樂'},{i:'🛒',l:'購物'},{i:'📦',l:'其他'}];
+const P_EXP=[{i:'🍽️',l:'飲食'},{i:'🏠',l:'居家'},{i:'🚗',l:'交通'},{i:'🎮',l:'娛樂'},{i:'💊',l:'醫療'},{i:'📱',l:'通訊'},{i:'📚',l:'進修'},{i:'📦',l:'其他'}];
 const CAT_ICONS=['🎯','💡','🌟','📚','💪','🔑','🎪','🧩'];
 
 // ════ 狀態 ══════════════════════════════════════════════
@@ -627,10 +627,19 @@ function doAddCat(){
 function extraRow(catId,mk,prevBal,hasHistory,hasCarryover){
   const key='ex-'+catId;
   if(!S.extraOpen[key]){
-    return btn({style:{width:'100%',padding:'7px',borderRadius:'8px',border:'1px dashed #243d55',background:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.78rem'},onClick:()=>{S.extraOpen[key]=true;S.extraMode[key]='carryover';render();}},['＋ 新增額外收入（結餘轉入 / 補助）']);
+    return btn({style:{width:'100%',padding:'7px',borderRadius:'8px',border:'1px dashed #243d55',background:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.78rem'},onClick:()=>{
+      S.extraOpen[key]=true;S.extraMode[key]='carryover';
+      render();
+      // 展開後滾動到可見區域
+      setTimeout(()=>{
+        const scr=document.getElementById('scr');
+        const els=scr.querySelectorAll('[data-extra-key]');
+        els.forEach(el=>{if(el.dataset.extraKey===key)el.scrollIntoView({behavior:'smooth',block:'nearest'});});
+      },60);
+    }},['＋ 新增額外收入（結餘轉入 / 補助）']);
   }
   const mode=S.extraMode[key]||'carryover';
-  const d=div({style:{background:'#152536',borderRadius:'10px',padding:'12px',marginBottom:'4px'}},[]);
+  const d=div({style:{background:'#152536',borderRadius:'10px',padding:'12px',marginBottom:'4px'},'data-extra-key':key},[]);
   // 模式切換
   const modeRow=div({className:'row',style:{marginBottom:'12px'}},[]);
   [['carryover','↩️ 上月結餘'],['subsidy','🎁 補助/其他']].forEach(([m,l])=>{
