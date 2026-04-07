@@ -108,8 +108,9 @@ const CAT_ICONS=['🎯','💡','🌟','📚','💪','🔑','🎪','🧩'];
 
 // ════ 狀態 ══════════════════════════════════════════════
 const now=new Date();
+const TODAY_YR=now.getFullYear(), TODAY_MO=now.getMonth()+1;
 let S={
-  yr:now.getFullYear(), mo:now.getMonth()+1, tab:0,
+  yr:TODAY_YR, mo:TODAY_MO, tab:0,
   members:    LS.get('fm_mem',   DEF_MEM),
   contribs:   LS.get('fm_cont',  []),
   categories: LS.get('fm_cats',  DEF_CATS),
@@ -128,6 +129,18 @@ let S={
 };
 function save(key,val){S[key]=val;LS.set('fm_'+key,val);}
 function mkey(){return S.yr+'-'+pad(S.mo);}
+// 是否為當月（唯讀判斷）
+function isCurrent(){return S.yr===TODAY_YR&&S.mo===TODAY_MO;}
+// 唯讀提示橫幅
+function readonlyBanner(){
+  return div({style:{background:'rgba(255,209,102,.08)',border:'1px solid rgba(255,209,102,.3)',borderRadius:'10px',padding:'10px 14px',marginBottom:'12px',display:'flex',alignItems:'center',gap:'8px'}},[
+    span({style:{fontSize:'1.1rem'}},['🔒']),
+    div({},[
+      div({style:{fontWeight:700,fontSize:'.82rem',color:'#ffd166'}},['歷史月份（唯讀）']),
+      div({style:{fontSize:'.72rem',color:'#6a8fa8',marginTop:'2px'}},['只能查看，無法新增或修改'])
+    ])
+  ]);
+}
 function pmkey(){return prevMK(S.yr,S.mo);}
 function monthTotal(){return S.contribs.filter(c=>c.month===mkey()).reduce((s,c)=>s+c.amount,0);}
 function catBalance(catId,month){
@@ -261,8 +274,10 @@ function page0(){
   const paidMap={};monthC.forEach(c=>{paidMap[c.memberId]=c;});
   const paidAll=monthC.length>=S.members.length;
   const pct=target>0?Math.min(mt/target*100,100):0;
+  const cur=isCurrent();
 
   const wrap=div({},[]);
+  if(!cur)wrap.appendChild(readonlyBanner());
 
   // 總覽卡
   const ov=card(null,[
@@ -273,15 +288,155 @@ function page0(){
   ]);
   wrap.appendChild(ov);
 
-  // 成員列
+  // 成員列（歷史月份唯讀：只顯示狀態，不顯示繳納按鈕）
   const mc=card('成員繳納狀況',[]);
   S.members.forEach(m=>{
-    mc.appendChild(memberRow(m,paidMap[String(m.id)],mk));
+    mc.appendChild(memberRow(m,paidMap[String(m.id)],mk,cur));
   });
   wrap.appendChild(mc);
+
+  // 備份 / 還原
+  const bc=card('💾 資料備份',[]);
+
+  // Google Drive 狀態
+  const clientId=LS.get('fm_gcid','');
+  const gdToken=window._gdToken||null;
+
+  // ── Google Drive 備份按鈕 ──
+  if(clientId){
+    const gdRow=div({style:{marginBottom:'12px'}},[]);
+    const gdBtn=btn({style:{width:'100%',padding:'11px',borderRadius:'9px',border:'none',background:'#4285f4',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:'.85rem',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'},onClick:()=>gdriveBackup()},['☁️ 備份到 Google Drive']);
+    gdRow.appendChild(gdBtn);
+    if(window._gdStatus){
+      gdRow.appendChild(div({style:{fontSize:'.75rem',textAlign:'center',marginTop:'6px',color:window._gdStatus.ok?'#2dd4bf':'#f87171'}},[window._gdStatus.msg]));
+    }
+    bc.appendChild(gdRow);
+    bc.appendChild(div({style:{height:'1px',background:'#243d55',margin:'12px 0'}},[null]));
+  } else {
+    // 提示設定
+    bc.appendChild(div({style:{fontSize:'.8rem',color:'#ffd166',marginBottom:'10px',padding:'8px 12px',background:'rgba(255,209,102,.08)',borderRadius:'8px',border:'1px solid rgba(255,209,102,.2)'}},[
+      '☁️ 設定 Google Drive 後可一鍵備份到雲端'
+    ]));
+  }
+
+  // ── Client ID 設定 ──
+  const cidOpen=S.cidOpen||false;
+  if(!cidOpen){
+    bc.appendChild(btn({style:{width:'100%',padding:'9px',borderRadius:'8px',border:'1px solid #243d55',background:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.8rem',marginBottom:'12px'},onClick:()=>{S.cidOpen=true;render();}},[ clientId?'⚙️ 已設定 Google Client ID（點此修改）':'⚙️ 設定 Google Drive（輸入 Client ID）' ]));
+  } else {
+    const cidBox=div({style:{background:'#152536',borderRadius:'9px',padding:'12px',marginBottom:'12px'}},[]);
+    cidBox.appendChild(div({style:{fontSize:'.78rem',color:'#6a8fa8',marginBottom:'8px'}},['貼上你的 Google OAuth Client ID：']));
+    const cidInp=inp({type:'text',value:clientId,placeholder:'xxxxxxx.apps.googleusercontent.com'});
+    cidInp.addEventListener('input',e=>{S._cidTmp=e.target.value;});
+    cidBox.appendChild(cidInp);
+    const cr=div({style:{display:'flex',gap:'8px',marginTop:'8px'}},[]);
+    cr.appendChild(btn({className:'btn-g',onClick:()=>{
+      const v=(S._cidTmp||cidInp.value).trim();
+      if(!v)return;
+      LS.set('fm_gcid',v);S.cidOpen=false;delete S._cidTmp;render();
+    }},['儲存']));
+    cr.appendChild(btn({className:'btn-w',onClick:()=>{S.cidOpen=false;render();}},['取消']));
+    cidBox.appendChild(cr);
+    // 說明連結
+    cidBox.appendChild(div({style:{fontSize:'.72rem',color:'#6a8fa8',marginTop:'10px',lineHeight:1.6}},['取得方式：Google Cloud Console → 建立專案 → 啟用 Drive API → OAuth 用戶端 ID（網頁應用程式）→ 授權來源填你的網址 → 複製 Client ID']));
+    bc.appendChild(cidBox);
+  }
+
+  // ── 本地備份/還原 ──
+  bc.appendChild(div({style:{fontSize:'.78rem',color:'#6a8fa8',marginBottom:'10px'}},['本地備份（無需網路）']));
+  const bRow=div({style:{display:'flex',gap:'10px'}},[]);
+  bRow.appendChild(btn({style:{flex:1,padding:'11px',borderRadius:'9px',border:'none',background:'linear-gradient(135deg,#00d4aa,#00b894)',color:'#0d1f2d',fontWeight:700,cursor:'pointer',fontSize:'.85rem'},onClick:()=>{
+    const data={members:S.members,contribs:S.contribs,categories:S.categories,allocs:S.allocs,expenses:S.expenses,extras:S.extras,personal:S.personal,exported:now_()};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='FamiFound_'+now_().slice(0,10)+'.json';a.click();
+  }},['📥 下載備份']));
+  const fi=inp({type:'file',accept:'.json',style:{display:'none'}});
+  fi.addEventListener('change',e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(!d.members||!d.contribs)return alert('格式錯誤');
+        if(!confirm('確定還原？目前資料將被覆蓋。'))return;
+        ['members','contribs','categories','allocs','expenses','extras','personal'].forEach(k=>{
+          if(d[k]){S[k]=d[k];LS.set('fm_'+k,d[k]);}
+        });
+        render();alert('✅ 還原成功');
+      }catch(err){alert('讀取失敗');}
+    };
+    reader.readAsText(file);fi.value='';
+  });
+  bRow.appendChild(fi);
+  bRow.appendChild(btn({style:{flex:1,padding:'11px',borderRadius:'9px',border:'1px solid #243d55',background:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.85rem'},onClick:()=>fi.click()},['📤 還原備份']));
+  bc.appendChild(bRow);
+  wrap.appendChild(bc);
+
   return wrap;
 }
-function memberRow(m,record,mk){
+
+// ════ Google Drive 備份 ═════════════════════════════════
+function gdriveBackup(){
+  const clientId=LS.get('fm_gcid','');
+  if(!clientId)return alert('請先設定 Google Client ID');
+
+  // 如果已有有效 token 直接上傳
+  if(window._gdToken&&window._gdTokenExp>Date.now()){
+    doGdriveUpload(window._gdToken);return;
+  }
+
+  // 載入 Google Identity Services
+  if(!document.getElementById('gsi-script')){
+    window._gdStatus={ok:false,msg:'⏳ 載入 Google 登入中...'};render();
+    const s=document.createElement('script');
+    s.id='gsi-script';
+    s.src='https://accounts.google.com/gsi/client';
+    s.onload=()=>requestGdriveToken(clientId);
+    s.onerror=()=>{window._gdStatus={ok:false,msg:'❌ 無法載入 Google 服務，請確認網路連線'};render();};
+    document.head.appendChild(s);
+  } else {
+    requestGdriveToken(clientId);
+  }
+}
+
+function requestGdriveToken(clientId){
+  try{
+    const client=google.accounts.oauth2.initTokenClient({
+      client_id:clientId,
+      scope:'https://www.googleapis.com/auth/drive.file',
+      callback:resp=>{
+        if(resp.error){window._gdStatus={ok:false,msg:'❌ 授權失敗：'+resp.error};render();return;}
+        window._gdToken=resp.access_token;
+        window._gdTokenExp=Date.now()+(resp.expires_in-60)*1000;
+        doGdriveUpload(resp.access_token);
+      }
+    });
+    client.requestAccessToken();
+  }catch(e){window._gdStatus={ok:false,msg:'❌ 錯誤：'+e.message};render();}
+}
+
+function doGdriveUpload(token){
+  window._gdStatus={ok:false,msg:'⏳ 上傳中...'};render();
+  const data={members:S.members,contribs:S.contribs,categories:S.categories,allocs:S.allocs,expenses:S.expenses,extras:S.extras,personal:S.personal,exported:now_()};
+  const filename='FamiFound_'+now_().slice(0,10)+'.json';
+  const content=JSON.stringify(data,null,2);
+  const boundary='famifound_boundary';
+  const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+
+    JSON.stringify({name:filename,mimeType:'application/json'})+
+    '\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+
+    content+'\r\n--'+boundary+'--';
+  fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+token,'Content-Type':'multipart/related; boundary='+boundary},
+    body
+  }).then(r=>r.json()).then(d=>{
+    if(d.id){window._gdStatus={ok:true,msg:'✅ 已備份到 Google Drive：'+filename};}
+    else{window._gdStatus={ok:false,msg:'❌ 上傳失敗：'+(d.error&&d.error.message||'未知錯誤')};}
+    render();
+  }).catch(e=>{window._gdStatus={ok:false,msg:'❌ 網路錯誤：'+e.message};render();});
+}
+function memberRow(m,record,mk,cur=true){
   const paid=!!record;
   const row=div({style:{padding:'13px 0',borderBottom:'1px solid #243d55'}},[]);
   const top=div({className:'row',style:{gap:'10px'}},[]);
@@ -289,8 +444,8 @@ function memberRow(m,record,mk){
   top.appendChild(av);
   const info=div({style:{flex:1}},[]);
 
-  // 改名
-  if(S.editNm[m.id]){
+  // 改名（唯讀時隱藏）
+  if(cur&&S.editNm[m.id]){
     const ni=inp({type:'text',value:S.nmVal[m.id]||m.name,style:{marginBottom:'5px'}});
     ni.addEventListener('input',e=>{S.nmVal[m.id]=e.target.value;});
     ni.addEventListener('blur',()=>doRename(m));
@@ -300,13 +455,14 @@ function memberRow(m,record,mk){
   } else {
     const nr=div({className:'row',style:{marginBottom:'3px'}},[
       span({style:{fontSize:'.9rem',fontWeight:700}},[m.name]),
-      btn({style:{background:'none',border:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.72rem'},onClick:()=>{S.editNm[m.id]=true;S.nmVal[m.id]=m.name;render();}},['✏️ 改名'])
-    ]);
+      // 改名按鈕只在當月顯示
+      cur?btn({style:{background:'none',border:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.72rem'},onClick:()=>{S.editNm[m.id]=true;S.nmVal[m.id]=m.name;render();}},['✏️ 改名']):null
+    ].filter(Boolean));
     info.appendChild(nr);
   }
 
-  // 預設金額
-  if(S.editDef[m.id]){
+  // 預設金額（唯讀時只顯示數字）
+  if(cur&&S.editDef[m.id]){
     const dr=div({className:'row',style:{marginBottom:'3px'}},[]);
     const dg=digitInput(S.defVal[m.id]||m.defaultAmt,v=>{S.defVal[m.id]=v;render();},true);
     dr.appendChild(dg);
@@ -317,18 +473,26 @@ function memberRow(m,record,mk){
     dr.appendChild(btn({className:'btn-w',style:{padding:'6px 10px'},onClick:()=>{delete S.editDef[m.id];render();}},['取消']));
     info.appendChild(dr);
   } else {
-    const defR=div({className:'row'},[ span({style:{fontSize:'.72rem',color:'#6a8fa8'}},['每月預設 $'+fmt(m.defaultAmt)]),btn({style:{background:'none',border:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.72rem'},onClick:()=>{S.editDef[m.id]=true;S.defVal[m.id]=m.defaultAmt;render();}},['✏️']) ]);
+    const defR=div({className:'row'},[
+      span({style:{fontSize:'.72rem',color:'#6a8fa8'}},['每月預設 $'+fmt(m.defaultAmt)]),
+      cur?btn({style:{background:'none',border:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.72rem'},onClick:()=>{S.editDef[m.id]=true;S.defVal[m.id]=m.defaultAmt;render();}},['✏️']):null
+    ].filter(Boolean));
     info.appendChild(defR);
   }
 
-  const status=paid?div({style:{fontSize:'.72rem',color:'#6a8fa8',marginTop:'3px'}},['繳 $'+fmt(record.amount)+' · '+record.paidAt.slice(5,16)]):div({style:{fontSize:'.72rem',color:'#f87171',marginTop:'3px'}},['⚠️ 本月尚未繳納']);
+  const status=paid
+    ?div({style:{fontSize:'.72rem',color:'#6a8fa8',marginTop:'3px'}},['繳 $'+fmt(record.amount)+' · '+record.paidAt.slice(5,16)])
+    :div({style:{fontSize:'.72rem',color:cur?'#f87171':'#6a8fa8',marginTop:'3px'}},[cur?'⚠️ 本月尚未繳納':'－ 未繳納']);
   info.appendChild(status);
   top.appendChild(info);
 
   if(paid){
-    const r=div({className:'row'},[span({style:{color:'#2dd4bf',fontSize:'.82rem',fontWeight:700,background:'rgba(45,212,191,.12)',border:'1px solid #2dd4bf',padding:'4px 12px',borderRadius:'20px'}},['✓ 已繳']),delBtn('cont-'+record.id,()=>{save('contribs',S.contribs.filter(c=>c.id!==record.id));render();})]);
+    // 已繳：唯讀時不顯示刪除
+    const r=div({className:'row'},[span({style:{color:'#2dd4bf',fontSize:'.82rem',fontWeight:700,background:'rgba(45,212,191,.12)',border:'1px solid #2dd4bf',padding:'4px 12px',borderRadius:'20px'}},['✓ 已繳'])]);
+    if(cur)r.appendChild(delBtn('cont-'+record.id,()=>{save('contribs',S.contribs.filter(c=>c.id!==record.id));render();}));
     top.appendChild(r);
-  } else {
+  } else if(cur){
+    // 未繳：只有當月才顯示繳納按鈕
     const pb=btn({style:{padding:'6px 16px',borderRadius:'20px',border:'1px solid #ffd166',background:'rgba(255,209,102,.1)',color:'#ffd166',cursor:'pointer',fontSize:'.82rem',fontWeight:600,userSelect:'none'},onClick:()=>{S.contribOpen[m.id]=!S.contribOpen[m.id];if(S.contribOpen[m.id])S.defVal['pay'+m.id]=m.defaultAmt;render();}},[ S.contribOpen[m.id]?'取消':'繳納' ]);
     top.appendChild(pb);
   }
@@ -360,18 +524,21 @@ function page1(){
   const getAlloc=catId=>(S.allocs.find(a=>a.catId===catId&&a.month===mk)||{amount:0}).amount;
   const totalAlloc=S.categories.reduce((s,c)=>s+getAlloc(c.id),0);
   const diff=mt-totalAlloc;
+  const cur=isCurrent();
   const mSpent=catId=>S.expenses.filter(e=>e.catId===catId&&e.date.startsWith(mk)).reduce((s,e)=>s+e.amount,0);
   const saveAlloc=(catId,v)=>{
+    if(!cur)return;
     const base=S.allocs.filter(a=>!(a.catId===catId&&a.month===mk));
     const news=v>0?[{id:uid(),catId,amount:v,month:mk}]:[];
     save('allocs',[...base,...news]);render();
   };
 
   const wrap=div({},[]);
+  if(!cur)wrap.appendChild(readonlyBanner());
 
   // 總覽
   const ov=card(null,[g3(mbox('本月公積金',mt,'c-i'),mbox('已分配',totalAlloc,'c-b'),mbox(diff>=0?'未分配':'超額',Math.abs(diff),diff===0?'c-m':diff>0?'c-g':'c-e'))]);
-  if(diff!==0)ov.appendChild(div({style:{fontSize:'.75rem',color:diff>0?'#ffd166':'#f87171',textAlign:'center',marginTop:'8px'}},[diff>0?'⚠️ 還有 $'+fmt(diff)+' 尚未分配':'⚠️ 超額 $'+fmt(-diff)]));
+  if(diff!==0&&cur)ov.appendChild(div({style:{fontSize:'.75rem',color:diff>0?'#ffd166':'#f87171',textAlign:'center',marginTop:'8px'}},[diff>0?'⚠️ 還有 $'+fmt(diff)+' 尚未分配':'⚠️ 超額 $'+fmt(-diff)]));
   wrap.appendChild(ov);
 
   // 各類別
@@ -392,34 +559,36 @@ function page1(){
         div({style:{fontWeight:700,fontSize:'.95rem'}},[cat.name]),
         cat.defPP>0?div({style:{fontSize:'.67rem',color:'#6a8fa8',marginTop:'1px'}},['每人 $'+fmt(cat.defPP)+' × '+S.members.length+' 人 = \$'+fmt(suggest)]):null
       ].filter(Boolean)),
-      delBtn('cat-'+cat.id,()=>{save('categories',S.categories.filter(cc=>cc.id!==cat.id));render();})
-    ]);
+      cur?delBtn('cat-'+cat.id,()=>{save('categories',S.categories.filter(cc=>cc.id!==cat.id));render();}):null
+    ].filter(Boolean));
     c.appendChild(th);
 
-    // 分配輸入
+    // 分配輸入（唯讀時只顯示金額）
     const aRow=div({style:{display:'flex',alignItems:'flex-end',gap:'10px',marginBottom:'14px',flexWrap:'wrap'}},[]);
-    const aDiv=div({},[sl('本月分配'),digitInput(thisA,v=>saveAlloc(cat.id,v),true)]);
-    aRow.appendChild(aDiv);
-    if(suggest>0&&thisA!==suggest){
-      aRow.appendChild(btn({style:{padding:'6px 12px',borderRadius:'8px',border:'1px solid #ffd166',background:'rgba(255,209,102,.08)',color:'#ffd166',cursor:'pointer',fontSize:'.76rem',marginBottom:'2px'},onClick:()=>saveAlloc(cat.id,suggest)},['套用 $'+fmt(suggest)]));
+    if(cur){
+      const aDiv=div({},[sl('本月分配'),digitInput(thisA,v=>saveAlloc(cat.id,v),true)]);
+      aRow.appendChild(aDiv);
+      if(suggest>0&&thisA!==suggest){
+        aRow.appendChild(btn({style:{padding:'6px 12px',borderRadius:'8px',border:'1px solid #ffd166',background:'rgba(255,209,102,.08)',color:'#ffd166',cursor:'pointer',fontSize:'.76rem',marginBottom:'2px'},onClick:()=>saveAlloc(cat.id,suggest)},['套用 $'+fmt(suggest)]));
+      }
+    } else {
+      aRow.appendChild(div({},[sl('本月分配'),div({style:{fontFamily:'monospace',fontSize:'1.1rem',fontWeight:700,color:thisA>0?'#4fc3f7':'#6a8fa8',padding:'4px 0'}},['$'+fmt(thisA)])]));
     }
     c.appendChild(aRow);
 
-    // 額外收入列表
+    // 額外收入（唯讀時只顯示列表，不顯示新增按鈕）
     if(catEx.length){
       const exList=div({style:{marginBottom:'10px'}},[]);
       catEx.forEach(ex=>{
         const r=div({style:{display:'flex',alignItems:'center',gap:'8px',padding:'6px 10px',background:'#152536',borderRadius:'8px',marginBottom:'5px'}},[]);
         r.appendChild(span({style:{fontSize:'.78rem',color:ex.type==='carryover'?'#4fc3f7':'#2dd4bf',flex:1}},[ex.type==='carryover'?'↩️ 上月結餘':'🎁 '+ex.label]));
         r.appendChild(span({style:{fontFamily:'monospace',fontSize:'.82rem',fontWeight:600,color:ex.type==='carryover'?'#4fc3f7':'#2dd4bf'}},['+ $'+fmt(ex.amount)]));
-        r.appendChild(delBtn('extra-'+ex.id,()=>{save('extras',S.extras.filter(x=>x.id!==ex.id));render();}));
+        if(cur)r.appendChild(delBtn('extra-'+ex.id,()=>{save('extras',S.extras.filter(x=>x.id!==ex.id));render();}));
         exList.appendChild(r);
       });
       c.appendChild(exList);
     }
-
-    // 額外收入新增
-    c.appendChild(extraRow(cat.id,mk,prevBal,hasHistory,hasCarryover));
+    if(cur)c.appendChild(extraRow(cat.id,mk,prevBal,hasHistory,hasCarryover));
 
     // 小結
     c.appendChild(div({style:{marginTop:'12px'}},[g3(mbox('本月收入',thisA+exSum,'c-i'),mbox('本月支出',thisS,'c-e'),mbox('本月結餘',thisA+exSum-thisS,thisA+exSum-thisS>=0?'c-i':'c-e'))]));
@@ -440,7 +609,7 @@ function page1(){
     wrap.appendChild(ac);
     setTimeout(()=>ni.focus(),50);
   } else {
-    wrap.appendChild(btn({style:{width:'100%',padding:'12px',borderRadius:'11px',border:'1.5px dashed #243d55',background:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.88rem'},onClick:()=>{S.allocAddOpen=true;S.allocNewName='';render();}},['＋ 新增分類']));
+    if(cur)wrap.appendChild(btn({style:{width:'100%',padding:'12px',borderRadius:'11px',border:'1.5px dashed #243d55',background:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.88rem'},onClick:()=>{S.allocAddOpen=true;S.allocNewName='';render();}},['＋ 新增分類']));
   }
   return wrap;
 }
@@ -512,7 +681,8 @@ function extraRow(catId,mk,prevBal,hasHistory,hasCarryover){
 function page2(){
   const mk=mkey();
   const monthExps=[...S.expenses.filter(e=>e.date.startsWith(mk))].reverse();
-  const valid=S.ledgerCat&&S.ledgerType&&S.ledgerAmt>0;
+  const cur=isCurrent();
+  const valid=cur&&S.ledgerCat&&S.ledgerType&&S.ledgerAmt>0;
   const chartData=S.categories.map(cat=>({
     name:cat.name,icon:cat.icon,
     alloc:(S.allocs.find(a=>a.catId===cat.id&&a.month===mk)||{amount:0}).amount,
@@ -520,6 +690,10 @@ function page2(){
   })).filter(d=>d.alloc>0||d.spent>0);
 
   const wrap=div({},[]);
+  if(!cur)wrap.appendChild(readonlyBanner());
+
+  // 新增表單（唯讀時隱藏）
+  if(cur){
   const fc=card('新增支出',[]);
   fc.appendChild(div({},[sl('支出分類')]));
 
@@ -544,6 +718,7 @@ function page2(){
     S.ledgerCat=null;S.ledgerType=null;S.ledgerAmt=0;S.ledgerNote='';render();
   }},[valid?'記錄支出 ✓':'請選分類、項目並填入金額']));
   wrap.appendChild(fc);
+  } // end if(cur)
 
   if(monthExps.length){
     const mc=card('本月支出明細',[]);
@@ -555,7 +730,7 @@ function page2(){
       b.appendChild(t);
       b.appendChild(div({style:{fontSize:'.69rem',color:'#6a8fa8',marginTop:'3px'}},[e.date.slice(5,16)+(e.note?' · '+e.note:'')]));
       r.appendChild(b);
-      r.appendChild(delBtn('exp-'+e.id,()=>{save('expenses',S.expenses.filter(ex=>ex.id!==e.id));render();}));
+      if(cur)r.appendChild(delBtn('exp-'+e.id,()=>{save('expenses',S.expenses.filter(ex=>ex.id!==e.id));render();}));
       mc.appendChild(r);
     });
     wrap.appendChild(mc);
@@ -602,8 +777,10 @@ function page4(){
   const inc=S.personal.filter(r=>r.month===mk&&r.type==='income').reduce((s,r)=>s+r.amount,0);
   const exp=S.personal.filter(r=>r.month===mk&&r.type==='expense').reduce((s,r)=>s+r.amount,0);
   const bal=inc-exp-cTotal;
-  const valid=S.persCat&&S.persAmt>0;
+  const cur=isCurrent();
+  const valid=cur&&S.persCat&&S.persAmt>0;
   const wrap=div({},[]);
+  if(!cur)wrap.appendChild(readonlyBanner());
 
   // 我是誰
   const who=div({style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'12px',background:'#1a2f42',border:'1px solid #243d55',borderRadius:'12px',padding:'10px 14px'}},[]);
@@ -622,23 +799,25 @@ function page4(){
   wrap.appendChild(g3(mbox('收入',inc,'c-i'),mbox('支出',exp+cTotal,'c-e'),mbox('結餘',bal,bal>=0?'c-i':'c-e')));
   wrap.appendChild(div({style:{marginBottom:'12px'}},[null]));
 
-  // 新增
-  const fc=card('新增收支',[]);
-  fc.appendChild(typeToggle(S.persType,()=>{S.persType='income';S.persCat=null;render();},()=>{S.persType='expense';S.persCat=null;render();}));
-  fc.appendChild(div({},[sl('類別')]));
-  fc.appendChild(catGrid(cats,S.persCat,v=>{S.persCat=v;render();}));
-  fc.appendChild(div({},[sl('金額')]));
-  fc.appendChild(digitInput(S.persAmt,v=>{S.persAmt=v;render();},true));
-  const ni=inp({type:'text',value:S.persNote,placeholder:'備註（可留空）',style:{marginTop:'10px',marginBottom:'12px'}});
-  ni.addEventListener('input',e=>{S.persNote=e.target.value;});
-  fc.appendChild(ni);
-  fc.appendChild(btn({className:'btn'+(valid?'':' btn-dis'),onClick:()=>{
-    if(!valid)return;
-    const catObj=cats.find(c=>c.l===S.persCat)||{i:'📦'};
-    save('personal',[...S.personal,{id:uid(),month:mk,type:S.persType,category:S.persCat,catIcon:catObj.i,amount:S.persAmt,note:S.persNote,date:now_()}]);
-    S.persAmt=0;S.persNote='';S.persCat=null;render();
-  }},[valid?'記帳 ✓':'請選類別並填入金額']));
-  wrap.appendChild(fc);
+  // 新增（唯讀時隱藏）
+  if(cur){
+    const fc=card('新增收支',[]);
+    fc.appendChild(typeToggle(S.persType,()=>{S.persType='income';S.persCat=null;render();},()=>{S.persType='expense';S.persCat=null;render();}));
+    fc.appendChild(div({},[sl('類別')]));
+    fc.appendChild(catGrid(cats,S.persCat,v=>{S.persCat=v;render();}));
+    fc.appendChild(div({},[sl('金額')]));
+    fc.appendChild(digitInput(S.persAmt,v=>{S.persAmt=v;render();},true));
+    const ni=inp({type:'text',value:S.persNote,placeholder:'備註（可留空）',style:{marginTop:'10px',marginBottom:'12px'}});
+    ni.addEventListener('input',e=>{S.persNote=e.target.value;});
+    fc.appendChild(ni);
+    fc.appendChild(btn({className:'btn'+(valid?'':' btn-dis'),onClick:()=>{
+      if(!valid)return;
+      const catObj=cats.find(c=>c.l===S.persCat)||{i:'📦'};
+      save('personal',[...S.personal,{id:uid(),month:mk,type:S.persType,category:S.persCat,catIcon:catObj.i,amount:S.persAmt,note:S.persNote,date:now_()}]);
+      S.persAmt=0;S.persNote='';S.persCat=null;render();
+    }},[valid?'記帳 ✓':'請選類別並填入金額']));
+    wrap.appendChild(fc);
+  }
 
   // 本月明細
   if(monthRecs.length){
@@ -650,7 +829,7 @@ function page4(){
       b.appendChild(div({className:'row-sb'},[span({style:{fontSize:'.87rem',fontWeight:500}},[r.category]),span({style:{fontFamily:'monospace',fontWeight:700,color:r.type==='income'?'#2dd4bf':'#f87171'}},[(r.type==='income'?'+':'−')+'$'+fmt(r.amount)])]));
       b.appendChild(div({style:{fontSize:'.69rem',color:'#6a8fa8',marginTop:'2px'}},[r.date.slice(5,16)+(r.note?' · '+r.note:'')]));
       row.appendChild(b);
-      row.appendChild(delBtn('pers-'+r.id,()=>{save('personal',S.personal.filter(x=>x.id!==r.id));render();}));
+      if(cur)row.appendChild(delBtn('pers-'+r.id,()=>{save('personal',S.personal.filter(x=>x.id!==r.id));render();}));
       mc.appendChild(row);
     });
     wrap.appendChild(mc);
