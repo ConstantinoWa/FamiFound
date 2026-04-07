@@ -7,149 +7,186 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0d1f2d">
 <title>FamiFound</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.8.0/Recharts.min.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #0d1f2d; }
-select option { background: #1a2f42; }
+*  { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+body { background:#0d1f2d; font-family:system-ui,sans-serif; }
+select option { background:#1a2f42; }
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; }
 </style>
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel">
+<script type="text/babel" data-presets="react">
 const { useState, useRef, useEffect } = React;
-const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } = Recharts;
 
-
-
-// ── 預設資料 ─────────────────────────────────────────────
 const DEF_MEM = [
   { id:1, name:"老公", color:"#2196F3", defaultAmt:25000 },
   { id:2, name:"老婆", color:"#E91E63", defaultAmt:25000 },
 ];
 const DEF_CATS = [
-  { id:1, name:"家用",  icon:"🏠", defPP:7000 },
-  { id:2, name:"小孩",  icon:"👶", defPP:6500 },
-  { id:3, name:"旅遊",  icon:"✈️", defPP:5000 },
-  { id:4, name:"汽車",  icon:"🚗", defPP:3000 },
-  { id:5, name:"房子",  icon:"🏗️", defPP:3500 },
-  { id:6, name:"其他",  icon:"📦", defPP:0    },
+  { id:1, name:"家用", icon:"🏠", defPP:7000 },
+  { id:2, name:"小孩", icon:"👶", defPP:6500 },
+  { id:3, name:"旅遊", icon:"✈️", defPP:5000 },
+  { id:4, name:"汽車", icon:"🚗", defPP:3000 },
+  { id:5, name:"房子", icon:"🏗️", defPP:3500 },
+  { id:6, name:"其他", icon:"📦", defPP:0 },
 ];
 const EXP_TYPES = [
   {i:"🍽️",l:"飲食"},{i:"👗",l:"服飾"},{i:"🏠",l:"居家"},{i:"🚗",l:"交通"},
   {i:"💊",l:"醫療"},{i:"🎮",l:"娛樂"},{i:"🛒",l:"購物"},{i:"📦",l:"其他"},
 ];
+const P_INC = [{i:"💰",l:"薪資"},{i:"🏆",l:"獎金"},{i:"📈",l:"投資"},{i:"🎁",l:"紅包"},{i:"💼",l:"兼差"},{i:"📦",l:"其他"}];
+const P_EXP = [{i:"🍽️",l:"飲食"},{i:"👗",l:"服飾"},{i:"🚗",l:"交通"},{i:"💊",l:"醫療"},{i:"🎮",l:"娛樂"},{i:"🛒",l:"購物"},{i:"📦",l:"其他"}];
 const CAT_ICON_POOL = ["🎯","💡","🌟","📚","💪","🔑","🎪","🧩"];
+const MCOLS = ["#2196F3","#E91E63","#FF9800","#9C27B0","#00BCD4","#8BC34A"];
 
-// ── 主題 ─────────────────────────────────────────────────
 const C = {
   bg:"#0d1f2d", surf:"#152536", card:"#1a2f42", border:"#243d55",
   acc:"#00d4aa", gold:"#ffd166", text:"#e8f4fd", muted:"#6a8fa8",
   inc:"#2dd4bf", exp:"#f87171", blue:"#4fc3f7",
 };
 
-// ── 工具 ─────────────────────────────────────────────────
 const LS = {
-  get:(k,d)=>{ try{ return JSON.parse(localStorage.getItem(k))??d; }catch{ return d; } },
-  set:(k,v)=>localStorage.setItem(k,JSON.stringify(v)),
+  get:(k,d)=>{ try{ const v=localStorage.getItem(k); return v!=null?JSON.parse(v):d; }catch(e){ return d; } },
+  set:(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} },
 };
 const pad  = n => String(n).padStart(2,"0");
-const fmt  = n => Number(n).toLocaleString("zh-TW");
-const uid  = () => Date.now() + Math.floor(Math.random()*9999);
-const now_ = () => { const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-const prevMK = (yr,mo) => { let m=mo-1,y=yr; if(m<1){m=12;y--;} return `${y}-${pad(m)}`; };
+const fmt  = n => Number(n||0).toLocaleString("zh-TW");
+const uid  = () => Date.now()+Math.floor(Math.random()*9999);
+const now_ = () => { const d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes()); };
+const prevMK = (yr,mo) => { let m=mo-1,y=yr; if(m<1){m=12;y--;} return y+"-"+pad(m); };
 
-// ── 樣式常數 ─────────────────────────────────────────────
-const inpS = { background:C.card, border:`1px solid ${C.border}`, borderRadius:9, color:C.text, padding:"8px 10px", fontSize:".88rem", fontFamily:"inherit", outline:"none" };
-const delS = { background:"none", border:"none", color:C.muted, cursor:"pointer", padding:"2px 6px", fontSize:".9rem" };
-const tabN = (on) => ({ flex:1, padding:"7px 4px 10px", textAlign:"center", fontSize:".68rem", cursor:"pointer", color:on?C.acc:C.muted, borderTop:on?`2px solid ${C.acc}`:"2px solid transparent", userSelect:"none", transition:"color .15s" });
-const greenBtn = { padding:"8px 16px", borderRadius:9, border:"none", background:`linear-gradient(135deg,${C.acc},#00b894)`, color:"#0d1f2d", fontWeight:700, cursor:"pointer", fontSize:".85rem", whiteSpace:"nowrap" };
-const grayBtn  = { padding:"8px 14px", borderRadius:9, border:`1px solid ${C.border}`, background:"none", color:C.muted, cursor:"pointer", fontSize:".85rem", whiteSpace:"nowrap" };
+const IS = { background:C.card, border:"1px solid "+C.border, borderRadius:9, color:C.text, padding:"8px 10px", fontSize:".88rem", fontFamily:"inherit", outline:"none" };
+const gBtn = { padding:"8px 16px", borderRadius:9, border:"none", background:"linear-gradient(135deg,"+C.acc+",#00b894)", color:"#0d1f2d", fontWeight:700, cursor:"pointer", fontSize:".85rem", whiteSpace:"nowrap" };
+const wBtn = { padding:"8px 14px", borderRadius:9, border:"1px solid "+C.border, background:"none", color:C.muted, cursor:"pointer", fontSize:".85rem", whiteSpace:"nowrap" };
+const tabS = on => ({ flex:1, padding:"7px 4px 10px", textAlign:"center", fontSize:".68rem", cursor:"pointer", color:on?C.acc:C.muted, borderTop:on?"2px solid "+C.acc:"2px solid transparent", userSelect:"none" });
+const dS = { background:"none", border:"none", color:C.muted, cursor:"pointer", padding:"2px 5px", fontSize:".9rem" };
 
-// ════════════════════════════════════════════════════════
+// ── 共用元件 ─────────────────────────────────────────────
+function Card({ title, children }) {
+  return (
+    <div style={{background:C.card,border:"1px solid "+C.border,borderRadius:13,padding:14,marginBottom:12}}>
+      {title&&<div style={{fontSize:".67rem",color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>{title}</div>}
+      {children}
+    </div>
+  );
+}
+function SL({ children }) {
+  return <div style={{fontSize:".67rem",color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:7}}>{children}</div>;
+}
+function MiniBox({ label, value, color }) {
+  const col=color||(value>=0?C.inc:C.exp);
+  return (
+    <div style={{background:C.surf,borderRadius:9,padding:"8px 6px",textAlign:"center"}}>
+      <div style={{fontSize:".62rem",color:C.muted,marginBottom:4}}>{label}</div>
+      <div style={{fontFamily:"monospace",fontSize:".88rem",fontWeight:700,color:col}}>${fmt(value)}</div>
+    </div>
+  );
+}
+function Av({ color, children }) {
+  return <div style={{width:36,height:36,borderRadius:"50%",background:color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:".78rem",fontWeight:700,flexShrink:0,color:"#fff"}}>{children}</div>;
+}
+function GBtn({ children, onClick }) {
+  return <button onClick={onClick} style={{background:"none",border:"none",color:C.acc,fontSize:"1.25rem",cursor:"pointer",padding:"2px 8px",lineHeight:1}}>{children}</button>;
+}
+function DelBtn({ onDel }) {
+  const [armed,setArmed]=useState(false);
+  const ti=useRef();
+  const arm=e=>{
+    e.stopPropagation();
+    if(armed){onDel();setArmed(false);clearTimeout(ti.current);}
+    else{setArmed(true);ti.current=setTimeout(()=>setArmed(false),2500);}
+  };
+  return <button onClick={arm} style={{background:armed?"rgba(248,113,113,.15)":"none",border:armed?"1px solid "+C.exp:"none",borderRadius:8,color:armed?C.exp:C.muted,cursor:"pointer",padding:armed?"3px 8px":"2px 6px",fontSize:".78rem",fontWeight:armed?700:400,whiteSpace:"nowrap",flexShrink:0}}>{armed?"確定？":"🗑"}</button>;
+}
+function DigitInput({ value, onChange, small }) {
+  const ref=useRef();
+  const [focus,setFocus]=useState(false);
+  const str=String(value||0),padded=str.padStart(5,"0"),sig=5-str.length;
+  const W=small?34:42,H=small?42:52,FS=small?"1.1rem":"1.4rem";
+  return (
+    <div style={{position:"relative",display:"inline-flex",alignItems:"center",gap:4,cursor:"text"}} onClick={()=>ref.current&&ref.current.focus()}>
+      {padded.split("").map((d,i)=>{
+        const on=i>=sig&&value>0;
+        return <div key={i} style={{width:W,height:H,background:C.card,border:"1.5px solid "+(focus?C.acc:on?C.acc:C.border),borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"monospace",fontSize:FS,fontWeight:700,color:on?C.text:C.muted}}>{d}</div>;
+      })}
+      <span style={{color:C.muted,fontSize:".82rem",marginLeft:3}}>元</span>
+      <input ref={ref} type="tel" inputMode="numeric" pattern="[0-9]*"
+        style={{position:"absolute",inset:0,opacity:0.01,width:"100%",height:"100%",cursor:"text",border:"none",background:"transparent",fontSize:"16px"}}
+        value={value||""} onFocus={()=>setFocus(true)} onBlur={()=>setFocus(false)}
+        onChange={e=>{const v=e.target.value.replace(/\D/g,"").slice(0,5);onChange(v?parseInt(v):0);}} />
+    </div>
+  );
+}
+
+// ── App ──────────────────────────────────────────────────
 function App() {
-  const n = new Date();
-  const [yr,  setYr]  = useState(n.getFullYear());
-  const [mo,  setMo]  = useState(n.getMonth()+1);
-  const [tab, setTab] = useState(0);
+  const n=new Date();
+  const [yr,setYr]=useState(n.getFullYear());
+  const [mo,setMo]=useState(n.getMonth()+1);
+  const [tab,setTab]=useState(0);
+  const [members,    setMembers]    = useState(()=>LS.get("fm_mem",   DEF_MEM));
+  const [contribs,   setContribs]   = useState(()=>LS.get("fm_cont",  []));
+  const [categories, setCategories] = useState(()=>LS.get("fm_cats",  DEF_CATS));
+  const [allocs,     setAllocs]     = useState(()=>LS.get("fm_alloc", []));
+  const [expenses,   setExpenses]   = useState(()=>LS.get("fm_exps",  []));
+  const [extras,     setExtras]     = useState(()=>LS.get("fm_extras",[]));
+  const [personal,   setPersonal]   = useState(()=>LS.get("fm_pers",  []));
 
-  const [members,    setMembers]    = useState(() => LS.get("fm_mem",   DEF_MEM));
-  const [contribs,   setContribs]   = useState(() => LS.get("fm_cont",  []));
-  const [categories, setCategories] = useState(() => LS.get("fm_cats",  DEF_CATS));
-  const [allocs,     setAllocs]     = useState(() => LS.get("fm_alloc", []));
-  const [expenses,   setExpenses]   = useState(() => LS.get("fm_exps",  []));
-  const [extras,     setExtras]     = useState(() => LS.get("fm_extras",[]));
-  const [personal,   setPersonal]   = useState(() => LS.get("fm_pers",  []));
-  const mkey  = `${yr}-${pad(mo)}`;
-  const pmkey = prevMK(yr, mo);
+  const mkey=yr+"-"+pad(mo), pmkey=prevMK(yr,mo);
 
-  const sv = {
-    mem:  v => { setMembers(v);    LS.set("fm_mem",   v); },
-    cont: v => { setContribs(v);   LS.set("fm_cont",  v); },
-    cats: v => { setCategories(v); LS.set("fm_cats",  v); },
-    alloc:v => { setAllocs(v);     LS.set("fm_alloc", v); },
-    exps:   v => { setExpenses(v);   LS.set("fm_exps",   v); },
-    extras: v => { setExtras(v);     LS.set("fm_extras", v); },
-    pers:   v => { setPersonal(v);   LS.set("fm_pers",   v); },
+  const sv={
+    mem:    v=>{setMembers(v);    LS.set("fm_mem",   v);},
+    cont:   v=>{setContribs(v);   LS.set("fm_cont",  v);},
+    cats:   v=>{setCategories(v); LS.set("fm_cats",  v);},
+    alloc:  v=>{setAllocs(v);     LS.set("fm_alloc", v);},
+    exps:   v=>{setExpenses(v);   LS.set("fm_exps",  v);},
+    extras: v=>{setExtras(v);     LS.set("fm_extras",v);},
+    pers:   v=>{setPersonal(v);   LS.set("fm_pers",  v);},
   };
 
-  const chgMo = d => {
-    let m=mo+d, y=yr;
-    if(m>12){m=1;y++;} if(m<1){m=12;y--;}
-    setMo(m); setYr(y);
+  const chgMo=d=>{let m=mo+d,y=yr;if(m>12){m=1;y++;}if(m<1){m=12;y--;}setMo(m);setYr(y);};
+  const monthTotal=contribs.filter(c=>c.month===mkey).reduce((s,c)=>s+c.amount,0);
+
+  const saveAlloc=map=>{
+    const base=allocs.filter(a=>a.month!==mkey);
+    const news=Object.entries(map).filter(([,v])=>v>0).map(([catId,amount])=>({id:uid(),catId:Number(catId),amount,month:mkey}));
+    sv.alloc([...base,...news]);
   };
 
-  const monthTotal = contribs.filter(c=>c.month===mkey).reduce((s,c)=>s+c.amount, 0);
-
-  const saveAlloc = (map) => {
-    const base = allocs.filter(a => a.month!==mkey);
-    const news = Object.entries(map)
-      .filter(([,v]) => v>0)
-      .map(([catId,amount]) => ({ id:uid(), catId:Number(catId), amount, month:mkey }));
-    sv.alloc([...base, ...news]);
+  const catBalance=(catId,month)=>{
+    const a=(allocs.find(x=>x.catId===catId&&x.month===month)||{amount:0}).amount;
+    const e=extras.filter(x=>x.catId===catId&&x.month===month).reduce((s,x)=>s+x.amount,0);
+    const s=expenses.filter(x=>x.catId===catId&&x.date.startsWith(month)).reduce((s,x)=>s+x.amount,0);
+    return a+e-s;
   };
 
-  // 計算某類別某月的真實結餘（分配 + extras - 支出）
-  const catBalance = (catId, month) => {
-    const a = allocs.find(x=>x.catId===catId&&x.month===month)?.amount||0;
-    const e = extras.filter(x=>x.catId===catId&&x.month===month).reduce((s,x)=>s+x.amount,0);
-    const s = expenses.filter(x=>x.catId===catId&&x.date.startsWith(month)).reduce((s,x)=>s+x.amount,0);
-    return a + e - s;
-  };
-
-  const shared = { mkey, pmkey, monthTotal, members, contribs, categories, allocs, expenses, extras, catBalance, personal };
+  const shared={mkey,pmkey,monthTotal,members,contribs,categories,allocs,expenses,extras,catBalance,personal};
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100vh", background:C.bg, color:C.text, fontFamily:"system-ui,'Noto Sans TC',sans-serif", overflow:"hidden" }}>
-
-      {/* 頂部 */}
-      <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"10px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
-        <div style={{ fontSize:"1rem", fontWeight:700, color:C.muted, letterSpacing:1 }}>💰 v04070945</div>
-        <div style={{ display:"flex", alignItems:"center", gap:2 }}>
+    <div style={{display:"flex",flexDirection:"column",height:"100vh",background:C.bg,color:C.text,overflow:"hidden"}}>
+      <div style={{background:C.surf,borderBottom:"1px solid "+C.border,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+        <div style={{fontSize:"1rem",fontWeight:700,color:C.muted,letterSpacing:1}}>💰 v04070944</div>
+        <div style={{display:"flex",alignItems:"center",gap:2}}>
           <GBtn onClick={()=>chgMo(-1)}>‹</GBtn>
-          <span style={{ fontFamily:"monospace", fontSize:".82rem", minWidth:66, textAlign:"center" }}>{yr}/{pad(mo)}</span>
+          <span style={{fontFamily:"monospace",fontSize:".82rem",minWidth:66,textAlign:"center"}}>{yr}/{pad(mo)}</span>
           <GBtn onClick={()=>chgMo(1)}>›</GBtn>
         </div>
       </div>
-
-      {/* 頁面內容 */}
-      <div style={{ flex:1, overflowY:"auto", padding:"13px 13px 22px", WebkitOverflowScrolling:"touch" }}>
-        {tab===0 && <PageContrib {...shared} sv={sv} />}
-        {tab===1 && <PageAlloc  {...shared} saveAlloc={saveAlloc} sv={sv} />}
-        {tab===2 && <PageLedger {...shared} sv={sv} />}
-        {tab===3 && <PageSummary categories={categories} allocs={allocs} expenses={expenses} />}
-        {tab===4 && <PagePersonal mkey={mkey} personal={personal} contribs={contribs} members={members} sv={sv} />}
+      <div style={{flex:1,overflowY:"auto",padding:"13px 13px 22px",WebkitOverflowScrolling:"touch"}}>
+        {tab===0&&<PageContrib {...shared} sv={sv}/>}
+        {tab===1&&<PageAlloc  {...shared} saveAlloc={saveAlloc} sv={sv}/>}
+        {tab===2&&<PageLedger {...shared} sv={sv}/>}
+        {tab===3&&<PageSummary categories={categories} allocs={allocs} expenses={expenses}/>}
+        {tab===4&&<PagePersonal mkey={mkey} personal={personal} contribs={contribs} members={members} sv={sv}/>}
       </div>
-
-      {/* 底部導航 */}
-      <nav style={{ display:"flex", background:C.surf, borderTop:`1px solid ${C.border}`, flexShrink:0 }}>
+      <nav style={{display:"flex",background:C.surf,borderTop:"1px solid "+C.border,flexShrink:0}}>
         {[["🏦","繳納"],["📊","分配"],["📒","記帳"],["📈","總計"],["👤","個人"]].map(([ico,lbl],i)=>(
-          <div key={i} onClick={()=>setTab(i)} style={tabN(tab===i)}>
-            <div style={{ fontSize:"1.2rem", marginBottom:1 }}>{ico}</div>
-            {lbl}
+          <div key={i} onClick={()=>setTab(i)} style={tabS(tab===i)}>
+            <div style={{fontSize:"1.2rem",marginBottom:1}}>{ico}</div>{lbl}
           </div>
         ))}
       </nav>
@@ -157,744 +194,456 @@ function App() {
   );
 }
 
-// ════════════════════════════════════════════════════════
-// 第一頁：繳納
-// ════════════════════════════════════════════════════════
-function PageContrib({ mkey, monthTotal, members, contribs, sv }) {
-  const monthC  = contribs.filter(c => c.month===mkey);
-  const target  = members.reduce((s,m) => s+m.defaultAmt, 0);
-  const paidMap = {};
-  monthC.forEach(c => { paidMap[c.memberId] = c; });
-  const paidAll = monthC.length >= members.length;
-  const pct     = target>0 ? Math.min(monthTotal/target*100, 100) : 0;
-
+// ── 第一頁：繳納 ─────────────────────────────────────────
+function PageContrib({mkey,members,contribs,monthTotal,sv}){
+  const monthC=contribs.filter(c=>c.month===mkey);
+  const target=members.reduce((s,m)=>s+m.defaultAmt,0);
+  const paidMap={};monthC.forEach(c=>{paidMap[c.memberId]=c;});
+  const paidAll=monthC.length>=members.length;
+  const pct=target>0?Math.min(monthTotal/target*100,100):0;
   return (<>
-    {/* 總覽卡 */}
-    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:13, padding:16, marginBottom:12 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
-        <MiniBox label="目標" value={target}      color={C.gold} />
-        <MiniBox label="已收" value={monthTotal}  color={monthTotal>=target?C.inc:C.exp} />
-        <div style={{ background:C.surf, borderRadius:9, padding:"8px 6px", textAlign:"center" }}>
-          <div style={{ fontSize:".62rem", color:C.muted, marginBottom:4 }}>狀態</div>
-          <div style={{ fontSize:".82rem", fontWeight:700, color:paidAll?C.inc:C.gold }}>{paidAll?"✅ 完成":"⏳ 待繳"}</div>
+    <div style={{background:C.card,border:"1px solid "+C.border,borderRadius:13,padding:16,marginBottom:12}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+        <MiniBox label="目標" value={target} color={C.gold}/>
+        <MiniBox label="已收" value={monthTotal} color={monthTotal>=target?C.inc:C.exp}/>
+        <div style={{background:C.surf,borderRadius:9,padding:"8px 6px",textAlign:"center"}}>
+          <div style={{fontSize:".62rem",color:C.muted,marginBottom:4}}>狀態</div>
+          <div style={{fontSize:".82rem",fontWeight:700,color:paidAll?C.inc:C.gold}}>{paidAll?"✅ 完成":"⏳ 待繳"}</div>
         </div>
       </div>
-      <div style={{ height:7, background:C.border, borderRadius:4, overflow:"hidden" }}>
-        <div style={{ height:"100%", width:`${pct.toFixed(0)}%`, background:`linear-gradient(90deg,${C.acc},${C.gold})`, borderRadius:4, transition:"width .4s" }} />
+      <div style={{height:7,background:C.border,borderRadius:4,overflow:"hidden"}}>
+        <div style={{height:"100%",width:pct.toFixed(0)+"%",background:"linear-gradient(90deg,"+C.acc+","+C.gold+")",borderRadius:4,transition:"width .4s"}}/>
       </div>
     </div>
-
-    {/* 每人列 */}
     <Card title="成員繳納狀況">
-      {members.map(m => (
+      {members.map(m=>(
         <ContribRow key={m.id} member={m} record={paidMap[String(m.id)]} mkey={mkey}
-          onPay={c => sv.cont([...contribs, c])}
-          onDel={id => sv.cont(contribs.filter(c=>c.id!==id))}
-          onUpdateDefault={amt => sv.mem(members.map(mm=>mm.id===m.id?{...mm,defaultAmt:amt}:mm))}
-          onRename={nm  => sv.mem(members.map(mm=>mm.id===m.id?{...mm,name:nm}:mm))}
+          onPay={c=>sv.cont([...contribs,c])}
+          onDel={id=>sv.cont(contribs.filter(c=>c.id!==id))}
+          onUpdateDefault={amt=>sv.mem(members.map(mm=>mm.id===m.id?{...mm,defaultAmt:amt}:mm))}
+          onRename={nm=>sv.mem(members.map(mm=>mm.id===m.id?{...mm,name:nm}:mm))}
         />
       ))}
     </Card>
   </>);
 }
 
-function ContribRow({ member, record, mkey, onPay, onDel, onUpdateDefault, onRename }) {
-  const [open,    setOpen]    = useState(false);
-  const [editDef, setEditDef] = useState(false);
-  const [editNm,  setEditNm]  = useState(false);
-  const [amt,     setAmt]     = useState(member.defaultAmt);
-  const [defAmt,  setDefAmt]  = useState(member.defaultAmt);
-  const [nmVal,   setNmVal]   = useState(member.name);
-  const paid = !!record;
-
-  const doPay = () => {
-    if(!amt) return;
-    onPay({ id:uid(), memberId:String(member.id), memberName:member.name, memberColor:member.color, amount:amt, month:mkey, paidAt:now_() });
-    setOpen(false);
-  };
-
+function ContribRow({member,record,mkey,onPay,onDel,onUpdateDefault,onRename}){
+  const [open,setOpen]=useState(false);
+  const [editDef,setEditDef]=useState(false);
+  const [editNm,setEditNm]=useState(false);
+  const [amt,setAmt]=useState(member.defaultAmt);
+  const [defAmt,setDefAmt]=useState(member.defaultAmt);
+  const [nmVal,setNmVal]=useState(member.name);
+  const paid=!!record;
+  const doPay=()=>{if(!amt)return;onPay({id:uid(),memberId:String(member.id),memberName:member.name,memberColor:member.color,amount:amt,month:mkey,paidAt:now_()});setOpen(false);};
   return (
-    <div style={{ padding:"13px 0", borderBottom:`1px solid ${C.border}` }}>
-      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+    <div style={{padding:"13px 0",borderBottom:"1px solid "+C.border}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
         <Av color={member.color}>{member.name[0]}</Av>
-
-        <div style={{ flex:1 }}>
-          {/* 姓名列 */}
-          {editNm ? (
-            <div style={{ display:"flex", gap:6, marginBottom:5 }}>
+        <div style={{flex:1}}>
+          {editNm?(
+            <div style={{display:"flex",gap:6,marginBottom:5}}>
               <input autoFocus value={nmVal} onChange={e=>setNmVal(e.target.value)}
-                onBlur={()=>{ onRename(nmVal.trim()||member.name); setEditNm(false); }}
-                onKeyDown={e=>{ if(e.key==="Enter"){ onRename(nmVal.trim()||member.name); setEditNm(false); } }}
-                style={{ ...inpS, width:90, padding:"4px 8px", fontSize:".88rem" }} />
+                onBlur={()=>{onRename(nmVal.trim()||member.name);setEditNm(false);}}
+                onKeyDown={e=>{if(e.key==="Enter"){onRename(nmVal.trim()||member.name);setEditNm(false);}}}
+                style={{...IS,width:90,padding:"4px 8px"}}/>
             </div>
-          ) : (
-            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }}>
-              <span style={{ fontSize:".9rem", fontWeight:700 }}>{member.name}</span>
-              <button onClick={()=>{ setNmVal(member.name); setEditNm(true); }} style={{ ...delS, fontSize:".72rem" }}>✏️ 改名</button>
-            </div>
-          )}
-
-          {/* 預設金額列 */}
-          {editDef ? (
-            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-              <DigitInput value={defAmt} onChange={setDefAmt} small />
-              <button onClick={()=>{ onUpdateDefault(defAmt); setEditDef(false); }} style={greenBtn}>存</button>
-              <button onClick={()=>setEditDef(false)} style={grayBtn}>取消</button>
-            </div>
-          ) : (
-            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-              <span style={{ fontSize:".72rem", color:C.muted }}>每月預設 ${fmt(member.defaultAmt)}</span>
-              <button onClick={()=>{ setDefAmt(member.defaultAmt); setEditDef(true); }} style={{ ...delS, fontSize:".72rem" }}>✏️</button>
+          ):(
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+              <span style={{fontSize:".9rem",fontWeight:700}}>{member.name}</span>
+              <button onClick={()=>{setNmVal(member.name);setEditNm(true);}} style={{...dS,fontSize:".72rem"}}>✏️ 改名</button>
             </div>
           )}
-
-          {paid
-            ? <div style={{ fontSize:".72rem", color:C.muted, marginTop:3 }}>繳 ${fmt(record.amount)} · {record.paidAt.slice(5,16)}</div>
-            : <div style={{ fontSize:".72rem", color:C.exp, marginTop:3 }}>⚠️ 本月尚未繳納</div>
-          }
+          {editDef?(
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <DigitInput value={defAmt} onChange={setDefAmt} small/>
+              <button onClick={()=>{onUpdateDefault(defAmt);setEditDef(false);}} style={gBtn}>存</button>
+              <button onClick={()=>setEditDef(false)} style={wBtn}>取消</button>
+            </div>
+          ):(
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:".72rem",color:C.muted}}>每月預設 ${fmt(member.defaultAmt)}</span>
+              <button onClick={()=>{setDefAmt(member.defaultAmt);setEditDef(true);}} style={{...dS,fontSize:".72rem"}}>✏️</button>
+            </div>
+          )}
+          {paid?<div style={{fontSize:".72rem",color:C.muted,marginTop:3}}>繳 ${fmt(record.amount)} · {record.paidAt.slice(5,16)}</div>:<div style={{fontSize:".72rem",color:C.exp,marginTop:3}}>⚠️ 本月尚未繳納</div>}
         </div>
-
-        {/* 右側按鈕 */}
-        {paid ? (
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ color:C.inc, fontSize:".82rem", fontWeight:700, background:"rgba(45,212,191,.12)", border:`1px solid ${C.inc}`, padding:"4px 12px", borderRadius:20 }}>✓ 已繳</span>
-            <DelBtn onDel={()=>onDel(record.id)} />
+        {paid?(
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{color:C.inc,fontSize:".82rem",fontWeight:700,background:"rgba(45,212,191,.12)",border:"1px solid "+C.inc,padding:"4px 12px",borderRadius:20}}>✓ 已繳</span>
+            <DelBtn onDel={()=>onDel(record.id)}/>
           </div>
-        ) : (
-          <button onClick={()=>{ setAmt(member.defaultAmt); setOpen(o=>!o); }}
-            style={{ padding:"6px 16px", borderRadius:20, border:`1px solid ${C.gold}`, background:"rgba(255,209,102,.1)", color:C.gold, cursor:"pointer", fontSize:".82rem", fontWeight:600, userSelect:"none" }}>
+        ):(
+          <button onClick={()=>{setAmt(member.defaultAmt);setOpen(o=>!o);}} style={{padding:"6px 16px",borderRadius:20,border:"1px solid "+C.gold,background:"rgba(255,209,102,.1)",color:C.gold,cursor:"pointer",fontSize:".82rem",fontWeight:600,userSelect:"none"}}>
             {open?"取消":"繳納"}
           </button>
         )}
       </div>
-
-      {/* 展開：金額確認 */}
-      {open && !paid && (
-        <div style={{ marginTop:10, padding:"12px 14px", background:C.surf, borderRadius:10, display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-          <span style={{ fontSize:".78rem", color:C.muted }}>繳納金額：</span>
-          <DigitInput value={amt} onChange={setAmt} small />
-          <button onClick={doPay} style={greenBtn}>確認繳納</button>
+      {open&&!paid&&(
+        <div style={{marginTop:10,padding:"12px 14px",background:C.surf,borderRadius:10,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          <span style={{fontSize:".78rem",color:C.muted}}>繳納金額：</span>
+          <DigitInput value={amt} onChange={setAmt} small/>
+          <button onClick={doPay} style={gBtn}>確認繳納</button>
         </div>
       )}
     </div>
   );
 }
 
-// ════════════════════════════════════════════════════════
-// 第二頁：分配
-// ════════════════════════════════════════════════════════
-function PageAlloc({ mkey, pmkey, monthTotal, members, categories, allocs, expenses, extras, catBalance, saveAlloc, sv }) {
-  const buildLocal = () => {
-    const r = {};
-    categories.forEach(c => { r[c.id] = allocs.find(a=>a.catId===c.id&&a.month===mkey)?.amount || 0; });
-    return r;
-  };
-  const [local,   setLocal]   = useState(buildLocal);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState("");
-
-  useEffect(() => setLocal(buildLocal()), [mkey, allocs.length, categories.length]);
-
-  const upd = (catId, v) => {
-    const u = { ...local, [catId]:v };
-    setLocal(u);
-    saveAlloc(u);
-  };
-
-  const applyDefaults = () => {
-    const u = {};
-    categories.forEach(c => { u[c.id] = (c.defPP||0) * members.length; });
-    setLocal(u);
-    saveAlloc(u);
-  };
-
-  const totalAlloc = Object.values(local).reduce((s,v)=>s+v, 0);
-  const totalExtras = extras.filter(x=>x.month===mkey).reduce((s,x)=>s+x.amount, 0);
-  const totalSpent  = expenses.filter(e=>e.date.startsWith(mkey)).reduce((s,e)=>s+e.amount, 0);
-  const diff = monthTotal - totalAlloc;
-
-  const mSpent = (catId, m) => expenses.filter(e=>e.catId===catId&&e.date.startsWith(m)).reduce((s,e)=>s+e.amount, 0);
-
-  const addCat = () => {
-    const nm = newName.trim();
-    if(!nm) return;
-    sv.cats([...categories, { id:uid(), name:nm, icon:CAT_ICON_POOL[categories.length%CAT_ICON_POOL.length], defPP:0 }]);
-    setNewName(""); setShowAdd(false);
-  };
-
+// ── 第二頁：分配 ─────────────────────────────────────────
+function PageAlloc({mkey,pmkey,monthTotal,members,categories,allocs,expenses,extras,catBalance,saveAlloc,sv}){
+  const build=()=>{const r={};categories.forEach(c=>{r[c.id]=(allocs.find(a=>a.catId===c.id&&a.month===mkey)||{amount:0}).amount;});return r;};
+  const [local,setLocal]=useState(build);
+  const [showAdd,setShowAdd]=useState(false);
+  const [newName,setNewName]=useState("");
+  useEffect(()=>setLocal(build()),[mkey,allocs.length,categories.length]);
+  const upd=(catId,v)=>{const u={...local,[catId]:v};setLocal(u);saveAlloc(u);};
+  const totalAlloc=Object.values(local).reduce((s,v)=>s+v,0);
+  const diff=monthTotal-totalAlloc;
+  const mSpent=(catId,m)=>expenses.filter(e=>e.catId===catId&&e.date.startsWith(m)).reduce((s,e)=>s+e.amount,0);
+  const mAlloc=(catId,m)=>(allocs.find(a=>a.catId===catId&&a.month===m)||{amount:0}).amount;
+  const addCat=()=>{const nm=newName.trim();if(!nm)return;sv.cats([...categories,{id:uid(),name:nm,icon:CAT_ICON_POOL[categories.length%CAT_ICON_POOL.length],defPP:0}]);setNewName("");setShowAdd(false);};
   return (<>
-    {/* 分配總覽 */}
     <Card>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:10 }}>
-        <MiniBox label="本月公積金" value={monthTotal}   color={C.inc} />
-        <MiniBox label="已分配"     value={totalAlloc}   color={C.blue} />
-        <MiniBox label={diff>=0?"未分配":"超額"} value={Math.abs(diff)} color={diff===0?C.muted:diff>0?C.gold:C.exp} />
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:diff!==0?10:0}}>
+        <MiniBox label="本月公積金" value={monthTotal} color={C.inc}/>
+        <MiniBox label="已分配" value={totalAlloc} color={C.blue}/>
+        <MiniBox label={diff>=0?"未分配":"超額"} value={Math.abs(diff)} color={diff===0?C.muted:diff>0?C.gold:C.exp}/>
       </div>
-      {diff!==0 && (
-        <div style={{ fontSize:".75rem", color:diff>0?C.gold:C.exp, textAlign:"center", marginBottom:10 }}>
-          {diff>0 ? `⚠️ 還有 $${fmt(diff)} 尚未分配` : `⚠️ 超額 $${fmt(-diff)}`}
-        </div>
-      )}
+      {diff!==0&&<div style={{fontSize:".75rem",color:diff>0?C.gold:C.exp,textAlign:"center"}}>{diff>0?"⚠️ 還有 $"+fmt(diff)+" 尚未分配":"⚠️ 超額 $"+fmt(-diff)}</div>}
     </Card>
-
-    {/* 各類別 */}
-    {categories.map(cat => {
-      const thisA   = local[cat.id] || 0;
-      const thisS   = mSpent(cat.id, mkey);
-      const prevBal = catBalance(cat.id, pmkey);   // 上月真實結餘（系統自算）
-      const suggest = (cat.defPP||0) * members.length;
-      const catEx   = extras.filter(x=>x.catId===cat.id&&x.month===mkey);
-      const exSum   = catEx.reduce((s,x)=>s+x.amount, 0);
-      const netIn   = thisA + exSum;               // 本月總收入（分配+額外）
-      const netBal  = netIn - thisS;               // 本月結餘
-
-      // 上月結餘：若有任何歷史資料則自動算，否則讀 extras 的 carryover 手動值
-      const hasHistory = allocs.some(a=>a.catId===cat.id&&a.month===pmkey) ||
-                         expenses.some(e=>e.catId===cat.id&&e.date.startsWith(pmkey));
-      const manualCarry = extras.find(x=>x.catId===cat.id&&x.month===mkey&&x.type==="carryover");
-
+    {categories.map(cat=>{
+      const thisA=local[cat.id]||0,thisS=mSpent(cat.id,mkey);
+      const suggest=(cat.defPP||0)*members.length;
+      const catEx=extras.filter(x=>x.catId===cat.id&&x.month===mkey);
+      const exSum=catEx.reduce((s,x)=>s+x.amount,0);
+      const prevBal=catBalance(cat.id,pmkey);
+      const hasHistory=allocs.some(a=>a.catId===cat.id&&a.month===pmkey)||expenses.some(e=>e.catId===cat.id&&e.date.startsWith(pmkey));
+      const manualCarry=extras.find(x=>x.catId===cat.id&&x.month===mkey&&x.type==="carryover");
       return (
         <Card key={cat.id}>
-          {/* 標題列 */}
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-            <span style={{ fontSize:"1.3rem" }}>{cat.icon}</span>
-            <div style={{ flex:1 }}>
-              <div style={{ fontWeight:700, fontSize:".95rem" }}>{cat.name}</div>
-              {cat.defPP > 0 && (
-                <div style={{ fontSize:".67rem", color:C.muted, marginTop:1 }}>
-                  每人 ${fmt(cat.defPP)} × {members.length} 人 = <span style={{ color:C.gold }}>${fmt(suggest)}</span>
-                </div>
-              )}
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <span style={{fontSize:"1.3rem"}}>{cat.icon}</span>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,fontSize:".95rem"}}>{cat.name}</div>
+              {cat.defPP>0&&<div style={{fontSize:".67rem",color:C.muted,marginTop:1}}>每人 ${fmt(cat.defPP)} × {members.length} 人 = <span style={{color:C.gold}}>${fmt(suggest)}</span></div>}
             </div>
-            <DelBtn onDel={()=>sv.cats(categories.filter(c=>c.id!==cat.id))} />
+            <DelBtn onDel={()=>sv.cats(categories.filter(c=>c.id!==cat.id))}/>
           </div>
-
-          {/* 本月公積金分配 */}
-          <div style={{ display:"flex", alignItems:"flex-end", gap:10, marginBottom:14, flexWrap:"wrap" }}>
-            <div>
-              <SL>本月分配</SL>
-              <DigitInput value={thisA} onChange={v=>upd(cat.id,v)} small />
-            </div>
-            {suggest>0 && thisA!==suggest && (
-              <button onClick={()=>upd(cat.id,suggest)} style={{ padding:"6px 12px", borderRadius:8, border:`1px solid ${C.gold}`, background:"rgba(255,209,102,.08)", color:C.gold, cursor:"pointer", fontSize:".76rem", marginBottom:2 }}>
-                套用 ${fmt(suggest)}
-              </button>
-            )}
+          <div style={{display:"flex",alignItems:"flex-end",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+            <div><SL>本月分配</SL><DigitInput value={thisA} onChange={v=>upd(cat.id,v)} small/></div>
+            {suggest>0&&thisA!==suggest&&<button onClick={()=>upd(cat.id,suggest)} style={{padding:"6px 12px",borderRadius:8,border:"1px solid "+C.gold,background:"rgba(255,209,102,.08)",color:C.gold,cursor:"pointer",fontSize:".76rem",marginBottom:2}}>套用 ${fmt(suggest)}</button>}
           </div>
-
-          {/* 額外收入列表 */}
-          {catEx.length>0 && (
-            <div style={{ marginBottom:10 }}>
-              {catEx.map(ex=>(
-                <div key={ex.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px", background:C.surf, borderRadius:8, marginBottom:5 }}>
-                  <span style={{ fontSize:".78rem", color:ex.type==="carryover"?C.blue:C.inc, flex:1 }}>
-                    {ex.type==="carryover" ? "↩️ 上月結餘" : `🎁 ${ex.label}`}
-                  </span>
-                  <span style={{ fontFamily:"monospace", fontSize:".82rem", fontWeight:600, color:ex.type==="carryover"?C.blue:C.inc }}>+${fmt(ex.amount)}</span>
-                  <DelBtn onDel={()=>sv.extras(extras.filter(x=>x.id!==ex.id))} />
-                </div>
-              ))}
+          {catEx.length>0&&<div style={{marginBottom:10}}>{catEx.map(ex=>(
+            <div key={ex.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:C.surf,borderRadius:8,marginBottom:5}}>
+              <span style={{fontSize:".78rem",color:ex.type==="carryover"?C.blue:C.inc,flex:1}}>{ex.type==="carryover"?"↩️ 上月結餘":"🎁 "+ex.label}</span>
+              <span style={{fontFamily:"monospace",fontSize:".82rem",fontWeight:600,color:ex.type==="carryover"?C.blue:C.inc}}>+${fmt(ex.amount)}</span>
+              <DelBtn onDel={()=>sv.extras(extras.filter(x=>x.id!==ex.id))}/>
             </div>
-          )}
-
-          {/* 新增額外收入 */}
-          <ExtraRow
-            catId={cat.id} mkey={mkey} pmkey={pmkey}
-            prevBal={prevBal} hasHistory={hasHistory}
-            hasCarryover={!!manualCarry}
-            onAdd={ex=>sv.extras([...extras, ex])}
-          />
-
-          {/* 本月小結 */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginTop:12 }}>
-            <MiniBox label="本月收入" value={netIn}  color={C.inc} />
-            <MiniBox label="本月支出" value={thisS}  color={C.exp} />
-            <MiniBox label="本月結餘" value={netBal} />
+          ))}</div>}
+          <ExtraRow catId={cat.id} mkey={mkey} prevBal={prevBal} hasHistory={hasHistory} hasCarryover={!!manualCarry} onAdd={ex=>sv.extras([...extras,ex])}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginTop:12}}>
+            <MiniBox label="本月收入" value={thisA+exSum} color={C.inc}/>
+            <MiniBox label="本月支出" value={thisS} color={C.exp}/>
+            <MiniBox label="本月結餘" value={thisA+exSum-thisS}/>
           </div>
         </Card>
       );
     })}
-
-    {/* 新增類別 */}
-    {showAdd ? (
-      <Card>
-        <SL>新分類名稱</SL>
-        <div style={{ display:"flex", gap:8 }}>
-          <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)}
-            onKeyDown={e=>e.key==="Enter"&&addCat()}
-            placeholder="例：教育、保險…" style={{ ...inpS, flex:1 }} />
-          <button onClick={addCat}               style={greenBtn}>新增</button>
-          <button onClick={()=>setShowAdd(false)} style={grayBtn}>取消</button>
+    {showAdd?(
+      <Card><SL>新分類名稱</SL>
+        <div style={{display:"flex",gap:8}}>
+          <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCat()} placeholder="例：教育、保險…" style={{...IS,flex:1}}/>
+          <button onClick={addCat} style={gBtn}>新增</button>
+          <button onClick={()=>setShowAdd(false)} style={wBtn}>取消</button>
         </div>
       </Card>
-    ) : (
-      <button onClick={()=>setShowAdd(true)} style={{ width:"100%", padding:"12px", borderRadius:11, border:`1.5px dashed ${C.border}`, background:"none", color:C.muted, cursor:"pointer", fontSize:".88rem" }}>
-        ＋ 新增分類
-      </button>
+    ):(
+      <button onClick={()=>setShowAdd(true)} style={{width:"100%",padding:"12px",borderRadius:11,border:"1.5px dashed "+C.border,background:"none",color:C.muted,cursor:"pointer",fontSize:".88rem"}}>＋ 新增分類</button>
     )}
   </>);
 }
 
-// 額外收入列（上月結餘 / 補助新增）
-function ExtraRow({ catId, mkey, pmkey, prevBal, hasHistory, hasCarryover, onAdd }) {
-  const [open,    setOpen]    = useState(false);
-  const [mode,    setMode]    = useState("carryover");  // "carryover" | "subsidy"
-  const [manAmt,  setManAmt]  = useState(0);            // 手動輸入上月結餘
-  const [subAmt,  setSubAmt]  = useState(0);
-  const [subLbl,  setSubLbl]  = useState("");
-
-  const addCarry = () => {
-    const amt = hasHistory ? prevBal : manAmt;
-    if(!amt || amt<=0) return;
-    onAdd({ id:uid(), catId, month:mkey, type:"carryover", label:"上月結餘", amount:amt });
-    setOpen(false); setManAmt(0);
-  };
-
-  const addSub = () => {
-    if(!subAmt || !subLbl.trim()) return;
-    onAdd({ id:uid(), catId, month:mkey, type:"subsidy", label:subLbl.trim(), amount:subAmt });
-    setOpen(false); setSubAmt(0); setSubLbl("");
-  };
-
-  if (!open) return (
-    <button onClick={()=>setOpen(true)} style={{ width:"100%", padding:"7px", borderRadius:8, border:`1px dashed ${C.border}`, background:"none", color:C.muted, cursor:"pointer", fontSize:".78rem" }}>
-      ＋ 新增額外收入（結餘轉入 / 補助）
-    </button>
-  );
-
+function ExtraRow({catId,mkey,prevBal,hasHistory,hasCarryover,onAdd}){
+  const [open,setOpen]=useState(false);
+  const [mode,setMode]=useState("carryover");
+  const [manAmt,setManAmt]=useState(0);
+  const [subAmt,setSubAmt]=useState(0);
+  const [subLbl,setSubLbl]=useState("");
+  const addCarry=()=>{const amt=hasHistory?prevBal:manAmt;if(!amt||amt<=0)return;onAdd({id:uid(),catId,month:mkey,type:"carryover",label:"上月結餘",amount:amt});setOpen(false);setManAmt(0);};
+  const addSub=()=>{if(!subAmt||!subLbl.trim())return;onAdd({id:uid(),catId,month:mkey,type:"subsidy",label:subLbl.trim(),amount:subAmt});setOpen(false);setSubAmt(0);setSubLbl("");};
+  if(!open)return<button onClick={()=>setOpen(true)} style={{width:"100%",padding:"7px",borderRadius:8,border:"1px dashed "+C.border,background:"none",color:C.muted,cursor:"pointer",fontSize:".78rem"}}>＋ 新增額外收入（結餘轉入 / 補助）</button>;
   return (
-    <div style={{ background:C.surf, borderRadius:10, padding:"12px", marginBottom:4 }}>
-      {/* 類型切換 */}
-      <div style={{ display:"flex", gap:7, marginBottom:12 }}>
-        {[["carryover","↩️ 上月結餘"],["subsidy","🎁 政府補助 / 其他"]].map(([m,l])=>(
-          <div key={m} onClick={()=>setMode(m)} style={{ flex:1, padding:"7px 6px", borderRadius:8, textAlign:"center", cursor:"pointer", fontSize:".78rem", fontWeight:mode===m?700:400, border:`1.5px solid ${mode===m?C.acc:C.border}`, background:mode===m?"rgba(0,212,170,.1)":"none", color:mode===m?C.acc:C.muted, userSelect:"none" }}>{l}</div>
+    <div style={{background:C.surf,borderRadius:10,padding:"12px",marginBottom:4}}>
+      <div style={{display:"flex",gap:7,marginBottom:12}}>
+        {[["carryover","↩️ 上月結餘"],["subsidy","🎁 補助 / 其他"]].map(([m,l])=>(
+          <div key={m} onClick={()=>setMode(m)} style={{flex:1,padding:"7px 6px",borderRadius:8,textAlign:"center",cursor:"pointer",fontSize:".78rem",fontWeight:mode===m?700:400,border:"1.5px solid "+(mode===m?C.acc:C.border),background:mode===m?"rgba(0,212,170,.1)":"none",color:mode===m?C.acc:C.muted,userSelect:"none"}}>{l}</div>
         ))}
       </div>
-
-      {mode==="carryover" ? (
-        hasCarryover ? (
-          <div style={{ fontSize:".8rem", color:C.muted, textAlign:"center", padding:"6px 0" }}>本月已新增上月結餘</div>
-        ) : hasHistory ? (
-          <div>
-            <div style={{ fontSize:".8rem", color:C.muted, marginBottom:10 }}>
-              系統計算上月結餘：<span style={{ color:C.blue, fontWeight:700 }}>${fmt(prevBal)}</span>
-              {prevBal <= 0 && <span style={{ color:C.exp }}> （上月赤字，不轉入）</span>}
-            </div>
-            {prevBal > 0 && <button onClick={addCarry} style={{ ...greenBtn, width:"100%" }}>確認轉入 ${fmt(prevBal)}</button>}
-            {prevBal <= 0 && <button onClick={()=>setOpen(false)} style={{ ...grayBtn, width:"100%" }}>關閉</button>}
-          </div>
-        ) : (
-          <div>
-            <div style={{ fontSize:".78rem", color:C.muted, marginBottom:8 }}>首次使用，請手動輸入上月結餘金額：</div>
-            <DigitInput value={manAmt} onChange={setManAmt} small />
-            <div style={{ display:"flex", gap:7, marginTop:10 }}>
-              <button onClick={addCarry} style={greenBtn}>確認</button>
-              <button onClick={()=>setOpen(false)} style={grayBtn}>取消</button>
-            </div>
-          </div>
-        )
-      ) : (
+      {mode==="carryover"?hasCarryover?<div style={{fontSize:".8rem",color:C.muted,textAlign:"center",padding:"6px 0"}}>本月已新增上月結餘</div>:hasHistory?(
         <div>
-          <div style={{ marginBottom:8 }}>
-            <SL>補助名稱</SL>
-            <input value={subLbl} onChange={e=>setSubLbl(e.target.value)} placeholder="例：育兒津貼、節能補助…" style={{ ...inpS, width:"100%" }} />
-          </div>
-          <div style={{ marginBottom:10 }}>
-            <SL>金額</SL>
-            <DigitInput value={subAmt} onChange={setSubAmt} small />
-          </div>
-          <div style={{ display:"flex", gap:7 }}>
-            <button onClick={addSub} style={greenBtn}>新增</button>
-            <button onClick={()=>setOpen(false)} style={grayBtn}>取消</button>
-          </div>
+          <div style={{fontSize:".8rem",color:C.muted,marginBottom:10}}>系統計算上月結餘：<span style={{color:C.blue,fontWeight:700}}>${fmt(prevBal)}</span>{prevBal<=0&&<span style={{color:C.exp}}> （上月赤字）</span>}</div>
+          {prevBal>0?<button onClick={addCarry} style={{...gBtn,width:"100%"}}>確認轉入 ${fmt(prevBal)}</button>:<button onClick={()=>setOpen(false)} style={{...wBtn,width:"100%"}}>關閉</button>}
+        </div>
+      ):(
+        <div>
+          <div style={{fontSize:".78rem",color:C.muted,marginBottom:8}}>首次使用，請手動輸入上月結餘：</div>
+          <DigitInput value={manAmt} onChange={setManAmt} small/>
+          <div style={{display:"flex",gap:7,marginTop:10}}><button onClick={addCarry} style={gBtn}>確認</button><button onClick={()=>setOpen(false)} style={wBtn}>取消</button></div>
+        </div>
+      ):(
+        <div>
+          <div style={{marginBottom:8}}><SL>補助名稱</SL><input value={subLbl} onChange={e=>setSubLbl(e.target.value)} placeholder="育兒津貼…" style={{...IS,width:"100%"}}/></div>
+          <div style={{marginBottom:10}}><SL>金額</SL><DigitInput value={subAmt} onChange={setSubAmt} small/></div>
+          <div style={{display:"flex",gap:7}}><button onClick={addSub} style={gBtn}>新增</button><button onClick={()=>setOpen(false)} style={wBtn}>取消</button></div>
         </div>
       )}
     </div>
   );
 }
 
-// ════════════════════════════════════════════════════════
-// 第三頁：記帳
-// ════════════════════════════════════════════════════════
-function PageLedger({ mkey, categories, allocs, expenses, sv }) {
-  const [selCat,  setSelCat]  = useState(null);
-  const [selType, setSelType] = useState(null);
-  const [amount,  setAmount]  = useState(0);
-  const [note,    setNote]    = useState("");
-
-  const monthExps = [...expenses.filter(e=>e.date.startsWith(mkey))].reverse();
-  const valid = selCat && selType && amount>0;
-
-  const submit = () => {
-    if(!valid) return;
-    const cat = categories.find(c=>c.id===selCat);
-    const typ = EXP_TYPES.find(t=>t.l===selType);
-    sv.exps([...expenses, {
-      id:uid(), catId:selCat, catName:cat?.name||"", catIcon:cat?.icon||"📦",
-      subCat:selType, subIcon:typ?.i||"📦", amount, note, date:now_(),
-    }]);
-    setAmount(0); setNote(""); setSelCat(null); setSelType(null);
+// ── 第三頁：記帳 ─────────────────────────────────────────
+function PageLedger({mkey,categories,allocs,expenses,sv}){
+  const [selCat,setSelCat]=useState(null);
+  const [selType,setSelType]=useState(null);
+  const [amount,setAmount]=useState(0);
+  const [note,setNote]=useState("");
+  const monthExps=[...expenses.filter(e=>e.date.startsWith(mkey))].reverse();
+  const valid=selCat&&selType&&amount>0;
+  const submit=()=>{
+    if(!valid)return;
+    const cat=categories.find(c=>c.id===selCat)||{name:"",icon:"📦"};
+    const typ=EXP_TYPES.find(t=>t.l===selType)||{i:"📦"};
+    sv.exps([...expenses,{id:uid(),catId:selCat,catName:cat.name,catIcon:cat.icon,subCat:selType,subIcon:typ.i,amount,note,date:now_()}]);
+    setAmount(0);setNote("");setSelCat(null);setSelType(null);
   };
-
-  const chartData = categories.map(cat => ({
-    name: cat.name,
-    icon: cat.icon,
-    分配: allocs.find(a=>a.catId===cat.id&&a.month===mkey)?.amount||0,
-    支出: expenses.filter(e=>e.catId===cat.id&&e.date.startsWith(mkey)).reduce((s,e)=>s+e.amount,0),
-  })).filter(d=>d["分配"]>0||d["支出"]>0);
-
+  const chartData=categories.map(cat=>({
+    name:cat.name, icon:cat.icon,
+    alloc:(allocs.find(a=>a.catId===cat.id&&a.month===mkey)||{amount:0}).amount,
+    spent:expenses.filter(e=>e.catId===cat.id&&e.date.startsWith(mkey)).reduce((s,e)=>s+e.amount,0),
+  })).filter(d=>d.alloc>0||d.spent>0);
   return (<>
-    {/* 新增表單 */}
     <Card title="新增支出">
       <SL>支出分類</SL>
-      <div style={{ display:"flex", flexWrap:"wrap", gap:7, marginBottom:14 }}>
+      <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:14}}>
         {categories.map(cat=>(
-          <div key={cat.id} onClick={()=>setSelCat(cat.id)}
-            style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 14px", borderRadius:20, cursor:"pointer", userSelect:"none", background:selCat===cat.id?"rgba(0,212,170,.12)":C.surf, border:`1.5px solid ${selCat===cat.id?C.acc:C.border}`, color:selCat===cat.id?C.acc:C.muted, fontSize:".83rem", transition:"all .15s" }}>
+          <div key={cat.id} onClick={()=>setSelCat(cat.id)} style={{display:"flex",alignItems:"center",gap:4,padding:"6px 14px",borderRadius:20,cursor:"pointer",userSelect:"none",background:selCat===cat.id?"rgba(0,212,170,.12)":C.surf,border:"1.5px solid "+(selCat===cat.id?C.acc:C.border),color:selCat===cat.id?C.acc:C.muted,fontSize:".83rem"}}>
             {cat.icon} {cat.name}
           </div>
         ))}
       </div>
-
       <SL>消費項目</SL>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:7, marginBottom:14 }}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7,marginBottom:14}}>
         {EXP_TYPES.map(({i,l})=>(
-          <div key={l} onClick={()=>setSelType(l)}
-            style={{ padding:"8px 4px 7px", borderRadius:10, textAlign:"center", cursor:"pointer", userSelect:"none", background:selType===l?"rgba(0,212,170,.1)":C.card, border:`1.5px solid ${selType===l?C.acc:C.border}`, transition:"all .15s" }}>
-            <div style={{ fontSize:"1.2rem", marginBottom:2 }}>{i}</div>
-            <div style={{ fontSize:".63rem", color:selType===l?C.acc:C.muted }}>{l}</div>
+          <div key={l} onClick={()=>setSelType(l)} style={{padding:"8px 4px 7px",borderRadius:10,textAlign:"center",cursor:"pointer",userSelect:"none",background:selType===l?"rgba(0,212,170,.1)":C.card,border:"1.5px solid "+(selType===l?C.acc:C.border)}}>
+            <div style={{fontSize:"1.2rem",marginBottom:2}}>{i}</div>
+            <div style={{fontSize:".63rem",color:selType===l?C.acc:C.muted}}>{l}</div>
           </div>
         ))}
       </div>
-
       <SL>金額</SL>
-      <DigitInput value={amount} onChange={setAmount} />
-      <input placeholder="備註（可留空）" value={note} onChange={e=>setNote(e.target.value)}
-        style={{ ...inpS, width:"100%", marginTop:10, marginBottom:12 }} />
-      <button onClick={submit}
-        style={{ width:"100%", padding:12, borderRadius:10, border:"none", background:valid?`linear-gradient(135deg,${C.acc},#00b894)`:C.border, color:valid?"#0d1f2d":C.muted, fontSize:".92rem", fontWeight:700, cursor:valid?"pointer":"default", transition:"all .2s" }}>
+      <DigitInput value={amount} onChange={setAmount}/>
+      <input placeholder="備註（可留空）" value={note} onChange={e=>setNote(e.target.value)} style={{...IS,width:"100%",marginTop:10,marginBottom:12}}/>
+      <button onClick={submit} style={{width:"100%",padding:12,borderRadius:10,border:"none",background:valid?"linear-gradient(135deg,"+C.acc+",#00b894)":C.border,color:valid?"#0d1f2d":C.muted,fontSize:".92rem",fontWeight:700,cursor:valid?"pointer":"default"}}>
         {valid?"記錄支出 ✓":"請選分類、項目並填入金額"}
       </button>
     </Card>
-
-    {/* 本月明細 */}
-    {monthExps.length>0 && (
+    {monthExps.length>0&&(
       <Card title="本月支出明細">
         {monthExps.map((e,i)=>(
-          <div key={e.id} style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 0", borderBottom:i===monthExps.length-1?"none":`1px solid ${C.border}` }}>
-            <div style={{ width:34, height:34, borderRadius:"50%", background:C.surf, border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1rem", flexShrink:0 }}>{e.subIcon}</div>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:4 }}>
-                <span style={{ fontSize:".85rem", fontWeight:500 }}>{e.catIcon}{e.catName} › {e.subCat}</span>
-                <span style={{ fontFamily:"monospace", fontWeight:700, color:C.exp, flexShrink:0 }}>-${fmt(e.amount)}</span>
+          <div key={e.id} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 0",borderBottom:i===monthExps.length-1?"none":"1px solid "+C.border}}>
+            <div style={{width:34,height:34,borderRadius:"50%",background:C.surf,border:"1px solid "+C.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem",flexShrink:0}}>{e.subIcon}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:4}}>
+                <span style={{fontSize:".85rem",fontWeight:500}}>{e.catIcon}{e.catName} › {e.subCat}</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,color:C.exp,flexShrink:0}}>-${fmt(e.amount)}</span>
               </div>
-              <div style={{ fontSize:".69rem", color:C.muted, marginTop:3 }}>{e.date.slice(5,16)}{e.note&&` · ${e.note}`}</div>
+              <div style={{fontSize:".69rem",color:C.muted,marginTop:3}}>{e.date.slice(5,16)}{e.note?" · "+e.note:""}</div>
             </div>
-            <DelBtn onDel={()=>sv.exps(expenses.filter(ex=>ex.id!==e.id))} />
+            <DelBtn onDel={()=>sv.exps(expenses.filter(ex=>ex.id!==e.id))}/>
           </div>
         ))}
       </Card>
     )}
-
-    {/* 長條圖 */}
     <Card title="本月分配 vs 支出">
-      {chartData.length>0 ? (<>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={chartData} margin={{ top:5, right:5, left:-20, bottom:5 }}>
-            <XAxis dataKey="name" tick={{ fill:C.muted, fontSize:10 }} />
-            <YAxis tick={{ fill:C.muted, fontSize:9 }} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v} />
-            <Tooltip contentStyle={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontSize:".8rem" }} formatter={(v,nm)=>[`$${fmt(v)}`,nm]} />
-            <Bar dataKey="分配" fill={C.blue} radius={[4,4,0,0]} />
-            <Bar dataKey="支出" fill={C.exp}  radius={[4,4,0,0]} />
-          </BarChart>
-        </ResponsiveContainer>
-        <div style={{ display:"flex", justifyContent:"center", gap:16, marginTop:4 }}>
-          {[["分配",C.blue],["支出",C.exp]].map(([l,col])=>(
-            <div key={l} style={{ display:"flex", alignItems:"center", gap:4, fontSize:".75rem", color:C.muted }}>
-              <div style={{ width:10, height:10, borderRadius:2, background:col }} />{l}
-            </div>
-          ))}
-        </div>
-      </>) : (
-        <div style={{ textAlign:"center", padding:"20px 0", color:C.muted, fontSize:".85rem" }}>本月尚無分配或支出資料</div>
-      )}
+      {chartData.length>0?(
+        <CSSBarChart data={chartData}/>
+      ):<div style={{textAlign:"center",padding:"20px 0",color:C.muted,fontSize:".85rem"}}>本月尚無資料</div>}
     </Card>
   </>);
 }
 
-// ════════════════════════════════════════════════════════
-// 第四頁：公積金總計
-// ════════════════════════════════════════════════════════
-function PageSummary({ categories, allocs, expenses }) {
-  const rows = categories.map(cat => {
-    const ta = allocs.filter(a=>a.catId===cat.id).reduce((s,a)=>s+a.amount, 0);
-    const ts = expenses.filter(e=>e.catId===cat.id).reduce((s,e)=>s+e.amount, 0);
-    return { cat, ta, ts, bal:ta-ts };
+// ── 第四頁：總計 ─────────────────────────────────────────
+function PageSummary({categories,allocs,expenses}){
+  const rows=categories.map(cat=>{
+    const ta=allocs.filter(a=>a.catId===cat.id).reduce((s,a)=>s+a.amount,0);
+    const ts=expenses.filter(e=>e.catId===cat.id).reduce((s,e)=>s+e.amount,0);
+    return {cat,ta,ts,bal:ta-ts};
   });
-  const gta = rows.reduce((s,r)=>s+r.ta, 0);
-  const gts = rows.reduce((s,r)=>s+r.ts, 0);
+  const gta=rows.reduce((s,r)=>s+r.ta,0),gts=rows.reduce((s,r)=>s+r.ts,0);
   return (
     <Card title="各類別累計至今">
       {rows.map(({cat,ta,ts,bal})=>(
-        <div key={cat.id} style={{ padding:"13px 0", borderBottom:`1px solid ${C.border}` }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-            <span style={{ fontSize:"1.2rem" }}>{cat.icon}</span>
-            <span style={{ fontWeight:700, fontSize:".93rem", flex:1 }}>{cat.name}</span>
-            <span style={{ fontFamily:"monospace", fontWeight:700, color:bal>=0?C.inc:C.exp }}>
-              {bal>=0?"":"-"}${fmt(Math.abs(bal))}
-            </span>
+        <div key={cat.id} style={{padding:"13px 0",borderBottom:"1px solid "+C.border}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <span style={{fontSize:"1.2rem"}}>{cat.icon}</span>
+            <span style={{fontWeight:700,fontSize:".93rem",flex:1}}>{cat.name}</span>
+            <span style={{fontFamily:"monospace",fontWeight:700,color:bal>=0?C.inc:C.exp}}>{bal>=0?"":"-"}${fmt(Math.abs(bal))}</span>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:ta>0?8:0 }}>
-            <MiniBox label="累計分配" value={ta}  color={C.blue} />
-            <MiniBox label="累計支出" value={ts}  color={C.exp} />
-            <MiniBox label="結餘"     value={bal} />
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:ta>0?8:0}}>
+            <MiniBox label="累計分配" value={ta} color={C.blue}/><MiniBox label="累計支出" value={ts} color={C.exp}/><MiniBox label="結餘" value={bal}/>
           </div>
-          {ta>0 && (
-            <div style={{ height:6, background:C.border, borderRadius:3, overflow:"hidden" }}>
-              <div style={{ height:"100%", width:`${Math.min(ts/ta*100,100).toFixed(0)}%`, background:ts>ta?C.exp:C.acc, borderRadius:3 }} />
-            </div>
-          )}
+          {ta>0&&<div style={{height:6,background:C.border,borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:Math.min(ts/ta*100,100).toFixed(0)+"%",background:ts>ta?C.exp:C.acc,borderRadius:3}}/></div>}
         </div>
       ))}
-      <div style={{ paddingTop:14 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-          <span style={{ fontWeight:700 }}>全部合計</span>
-          <span style={{ fontFamily:"monospace", fontWeight:700, fontSize:"1rem", color:gta-gts>=0?C.inc:C.exp }}>
-            {gta-gts>=0?"":"-"}${fmt(Math.abs(gta-gts))}
-          </span>
+      <div style={{paddingTop:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <span style={{fontWeight:700}}>全部合計</span>
+          <span style={{fontFamily:"monospace",fontWeight:700,fontSize:"1rem",color:gta-gts>=0?C.inc:C.exp}}>{gta-gts>=0?"":"-"}${fmt(Math.abs(gta-gts))}</span>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
-          <MiniBox label="總分配" value={gta}     color={C.blue} />
-          <MiniBox label="總支出" value={gts}     color={C.exp} />
-          <MiniBox label="總結餘" value={gta-gts} />
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+          <MiniBox label="總分配" value={gta} color={C.blue}/><MiniBox label="總支出" value={gts} color={C.exp}/><MiniBox label="總結餘" value={gta-gts}/>
         </div>
       </div>
     </Card>
   );
 }
 
-// ════════════════════════════════════════════════════════
-// 第五頁：個人收支（只有自己）
-// ════════════════════════════════════════════════════════
-const P_INC = [{i:"💰",l:"薪資"},{i:"🏆",l:"獎金"},{i:"📈",l:"投資"},{i:"🎁",l:"紅包"},{i:"💼",l:"兼差"},{i:"📦",l:"其他"}];
-const P_EXP = [{i:"🍽️",l:"飲食"},{i:"👗",l:"服飾"},{i:"🚗",l:"交通"},{i:"💊",l:"醫療"},{i:"🎮",l:"娛樂"},{i:"🛒",l:"購物"},{i:"📦",l:"其他"}];
-
-function PagePersonal({ mkey, personal, contribs, members, sv }) {
-  // 記住上次選的成員
-  const [selfId, setSelfId] = useState(() => LS.get("fm_selfId", String(members[0]?.id||1)));
-  const [ptype,  setPtype]  = useState("income");
-  const [selCat, setSelCat] = useState(null);
-  const [amount, setAmount] = useState(0);
-  const [note,   setNote]   = useState("");
-
-  const selfMem = members.find(m=>String(m.id)===selfId) || members[0];
-
-  const cats      = ptype==="income" ? P_INC : P_EXP;
-  const monthRecs = [...personal.filter(r=>r.month===mkey)].reverse();
-
-  // 本月繳納公積金（自動帶入支出）
-  const myContribs = contribs.filter(c=>c.month===mkey&&c.memberId===selfId);
-  const contribTotal = myContribs.reduce((s,c)=>s+c.amount, 0);
-
-  const inc  = personal.filter(r=>r.month===mkey&&r.type==="income").reduce((s,r)=>s+r.amount, 0);
-  const exp  = personal.filter(r=>r.month===mkey&&r.type==="expense").reduce((s,r)=>s+r.amount, 0);
-  const bal  = inc - exp - contribTotal;   // 結餘扣掉公積金繳納
-  const valid = selCat && amount>0;
-
-  const submit = () => {
-    if(!valid) return;
-    const catObj = cats.find(c=>c.l===selCat);
-    sv.pers([...personal, { id:uid(), month:mkey, type:ptype, category:selCat, catIcon:catObj?.i||"📦", amount, note, date:now_() }]);
-    setAmount(0); setNote(""); setSelCat(null);
-  };
-
-  const changeSelf = id => { setSelfId(id); LS.set("fm_selfId", id); };
-
+// ── 第五頁：個人 ─────────────────────────────────────────
+function PagePersonal({mkey,personal,contribs,members,sv}){
+  const [selfId,setSelfId]=useState(()=>LS.get("fm_selfId",String((members[0]||{id:1}).id)));
+  const [ptype,setPtype]=useState("income");
+  const [selCat,setSelCat]=useState(null);
+  const [amount,setAmount]=useState(0);
+  const [note,setNote]=useState("");
+  const cats=ptype==="income"?P_INC:P_EXP;
+  const monthRecs=[...personal.filter(r=>r.month===mkey)].reverse();
+  const myContribs=contribs.filter(c=>c.month===mkey&&c.memberId===selfId);
+  const contribTotal=myContribs.reduce((s,c)=>s+c.amount,0);
+  const inc=personal.filter(r=>r.month===mkey&&r.type==="income").reduce((s,r)=>s+r.amount,0);
+  const exp=personal.filter(r=>r.month===mkey&&r.type==="expense").reduce((s,r)=>s+r.amount,0);
+  const bal=inc-exp-contribTotal;
+  const valid=selCat&&amount>0;
+  const submit=()=>{if(!valid)return;const catObj=cats.find(c=>c.l===selCat)||{i:"📦"};sv.pers([...personal,{id:uid(),month:mkey,type:ptype,category:selCat,catIcon:catObj.i,amount,note,date:now_()}]);setAmount(0);setNote("");setSelCat(null);};
+  const changeSelf=id=>{setSelfId(id);LS.set("fm_selfId",id);};
   return (<>
-    {/* 我是誰（記住選擇） */}
-    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"10px 14px" }}>
-      <span style={{ fontSize:".75rem", color:C.muted, flexShrink:0 }}>我是：</span>
-      <div style={{ display:"flex", gap:8, flex:1 }}>
-        {members.map(m=>{
-          const on = selfId===String(m.id);
-          return (
-            <div key={m.id} onClick={()=>changeSelf(String(m.id))} style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 14px", borderRadius:20, cursor:"pointer", userSelect:"none", border:`2px solid ${on?m.color:C.border}`, background:on?m.color+"33":"none", color:on?"#fff":C.muted, fontSize:".85rem", fontWeight:on?700:400, transition:"all .15s" }}>
-              <div style={{ width:20, height:20, borderRadius:"50%", background:m.color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:".65rem", fontWeight:700, color:"#fff" }}>{m.name[0]}</div>
-              {m.name}
-            </div>
-          );
-        })}
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,background:C.card,border:"1px solid "+C.border,borderRadius:12,padding:"10px 14px"}}>
+      <span style={{fontSize:".75rem",color:C.muted,flexShrink:0}}>我是：</span>
+      <div style={{display:"flex",gap:8,flex:1}}>
+        {members.map(m=>{const on=selfId===String(m.id);return(
+          <div key={m.id} onClick={()=>changeSelf(String(m.id))} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",borderRadius:20,cursor:"pointer",userSelect:"none",border:"2px solid "+(on?m.color:C.border),color:on?"#fff":C.muted,background:on?m.color+"33":"none",fontSize:".85rem",fontWeight:on?700:400}}>
+            <div style={{width:20,height:20,borderRadius:"50%",background:m.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:".65rem",fontWeight:700,color:"#fff"}}>{m.name[0]}</div>
+            {m.name}
+          </div>
+        );})}
       </div>
     </div>
-
-    {/* 本月摘要（含公積金） */}
-    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:12 }}>
-      <MiniBox label="收入" value={inc} color={C.inc} />
-      <MiniBox label="支出" value={exp+contribTotal} color={C.exp} />
-      <MiniBox label="結餘" value={bal} />
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+      <MiniBox label="收入" value={inc} color={C.inc}/><MiniBox label="支出" value={exp+contribTotal} color={C.exp}/><MiniBox label="結餘" value={bal}/>
     </div>
-
-    {/* 新增記帳 */}
     <Card title="新增收支">
-      <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+      <div style={{display:"flex",gap:8,marginBottom:12}}>
         {[["income","＋ 收入",C.inc,"rgba(45,212,191,.12)"],["expense","－ 支出",C.exp,"rgba(248,113,113,.12)"]].map(([t,l,col,bg])=>(
-          <div key={t} onClick={()=>{setPtype(t);setSelCat(null);}} style={{ flex:1, padding:"8px 4px", borderRadius:9, textAlign:"center", cursor:"pointer", userSelect:"none", border:`1px solid ${ptype===t?col:C.border}`, background:ptype===t?bg:C.surf, color:ptype===t?col:C.muted, fontSize:".87rem", fontWeight:600, transition:"all .15s" }}>{l}</div>
+          <div key={t} onClick={()=>{setPtype(t);setSelCat(null);}} style={{flex:1,padding:"8px 4px",borderRadius:9,textAlign:"center",cursor:"pointer",userSelect:"none",border:"1px solid "+(ptype===t?col:C.border),background:ptype===t?bg:C.surf,color:ptype===t?col:C.muted,fontSize:".87rem",fontWeight:600}}>{l}</div>
         ))}
       </div>
       <SL>類別</SL>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:7, marginBottom:12 }}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7,marginBottom:12}}>
         {cats.map(({i,l})=>(
-          <div key={l} onClick={()=>setSelCat(l)} style={{ padding:"8px 4px 7px", borderRadius:10, textAlign:"center", cursor:"pointer", userSelect:"none", background:selCat===l?"rgba(0,212,170,.1)":C.card, border:`1.5px solid ${selCat===l?C.acc:C.border}`, transition:"all .15s" }}>
-            <div style={{ fontSize:"1.2rem", marginBottom:2 }}>{i}</div>
-            <div style={{ fontSize:".63rem", color:selCat===l?C.acc:C.muted }}>{l}</div>
+          <div key={l} onClick={()=>setSelCat(l)} style={{padding:"8px 4px 7px",borderRadius:10,textAlign:"center",cursor:"pointer",userSelect:"none",background:selCat===l?"rgba(0,212,170,.1)":C.card,border:"1.5px solid "+(selCat===l?C.acc:C.border)}}>
+            <div style={{fontSize:"1.2rem",marginBottom:2}}>{i}</div>
+            <div style={{fontSize:".63rem",color:selCat===l?C.acc:C.muted}}>{l}</div>
           </div>
         ))}
       </div>
       <SL>金額</SL>
-      <DigitInput value={amount} onChange={setAmount} small />
-      <input placeholder="備註（可留空）" value={note} onChange={e=>setNote(e.target.value)} style={{ ...inpS, width:"100%", marginTop:10, marginBottom:12 }} />
-      <button onClick={submit} style={{ width:"100%", padding:12, borderRadius:10, border:"none", background:valid?`linear-gradient(135deg,${C.acc},#00b894)`:C.border, color:valid?"#0d1f2d":C.muted, fontSize:".92rem", fontWeight:700, cursor:valid?"pointer":"default", transition:"all .2s" }}>
+      <DigitInput value={amount} onChange={setAmount} small/>
+      <input placeholder="備註（可留空）" value={note} onChange={e=>setNote(e.target.value)} style={{...IS,width:"100%",marginTop:10,marginBottom:12}}/>
+      <button onClick={submit} style={{width:"100%",padding:12,borderRadius:10,border:"none",background:valid?"linear-gradient(135deg,"+C.acc+",#00b894)":C.border,color:valid?"#0d1f2d":C.muted,fontSize:".92rem",fontWeight:700,cursor:valid?"pointer":"default"}}>
         {valid?"記帳 ✓":"請選類別並填入金額"}
       </button>
     </Card>
-
-    {/* 本月明細（個人手動） */}
-    {monthRecs.length>0 && (
+    {monthRecs.length>0&&(
       <Card title="本月明細">
         {monthRecs.map((r,i)=>(
-          <div key={r.id} style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 0", borderBottom:i===monthRecs.length-1?"none":`1px solid ${C.border}` }}>
-            <div style={{ width:34, height:34, borderRadius:"50%", background:r.type==="income"?C.inc+"33":C.exp+"33", border:`1.5px solid ${r.type==="income"?C.inc:C.exp}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1rem", flexShrink:0 }}>{r.catIcon}</div>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ display:"flex", justifyContent:"space-between" }}>
-                <span style={{ fontSize:".87rem", fontWeight:500 }}>{r.category}</span>
-                <span style={{ fontFamily:"monospace", fontWeight:700, color:r.type==="income"?C.inc:C.exp }}>
-                  {r.type==="income"?"+":"-"}${fmt(r.amount)}
-                </span>
+          <div key={r.id} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 0",borderBottom:i===monthRecs.length-1?"none":"1px solid "+C.border}}>
+            <div style={{width:34,height:34,borderRadius:"50%",background:r.type==="income"?C.inc+"33":C.exp+"33",border:"1.5px solid "+(r.type==="income"?C.inc:C.exp),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem",flexShrink:0}}>{r.catIcon}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{fontSize:".87rem",fontWeight:500}}>{r.category}</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,color:r.type==="income"?C.inc:C.exp}}>{r.type==="income"?"+":"-"}${fmt(r.amount)}</span>
               </div>
-              <div style={{ fontSize:".69rem", color:C.muted, marginTop:2 }}>{r.date.slice(5,16)}{r.note&&` · ${r.note}`}</div>
+              <div style={{fontSize:".69rem",color:C.muted,marginTop:2}}>{r.date.slice(5,16)}{r.note?" · "+r.note:""}</div>
             </div>
-            <DelBtn onDel={()=>sv.pers(personal.filter(x=>x.id!==r.id))} />
+            <DelBtn onDel={()=>sv.pers(personal.filter(x=>x.id!==r.id))}/>
           </div>
         ))}
       </Card>
     )}
-
-    {/* 公積金繳納（自動帶入，顯示在下方） */}
-    {myContribs.length>0 && (
+    {myContribs.length>0&&(
       <Card title="公積金繳納（自動扣除）">
         {myContribs.map((c,i)=>(
-          <div key={c.id} style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 0", borderBottom:i===myContribs.length-1?"none":`1px solid ${C.border}` }}>
-            <div style={{ width:34, height:34, borderRadius:"50%", background:"rgba(255,209,102,.15)", border:`1.5px solid ${C.gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1rem", flexShrink:0 }}>🏦</div>
-            <div style={{ flex:1 }}>
-              <div style={{ display:"flex", justifyContent:"space-between" }}>
-                <span style={{ fontSize:".87rem", fontWeight:500 }}>繳納公積金</span>
-                <span style={{ fontFamily:"monospace", fontWeight:700, color:C.exp }}>-${fmt(c.amount)}</span>
-              </div>
-              <div style={{ fontSize:".69rem", color:C.muted, marginTop:2 }}>{c.paidAt.slice(5,16)} · 自動帶入</div>
+          <div key={c.id} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 0",borderBottom:i===myContribs.length-1?"none":"1px solid "+C.border}}>
+            <div style={{width:34,height:34,borderRadius:"50%",background:"rgba(255,209,102,.15)",border:"1.5px solid "+C.gold,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem",flexShrink:0}}>🏦</div>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:".87rem",fontWeight:500}}>繳納公積金</span><span style={{fontFamily:"monospace",fontWeight:700,color:C.exp}}>-${fmt(c.amount)}</span></div>
+              <div style={{fontSize:".69rem",color:C.muted,marginTop:2}}>{c.paidAt.slice(5,16)} · 自動帶入</div>
             </div>
           </div>
         ))}
-        <div style={{ display:"flex", justifyContent:"flex-end", paddingTop:8, borderTop:`1px solid ${C.border}`, marginTop:4 }}>
-          <span style={{ fontSize:".75rem", color:C.muted, marginRight:8 }}>本月繳納小計</span>
-          <span style={{ fontFamily:"monospace", fontWeight:700, color:C.exp }}>-${fmt(contribTotal)}</span>
+        <div style={{display:"flex",justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid "+C.border,marginTop:4}}>
+          <span style={{fontSize:".75rem",color:C.muted,marginRight:8}}>本月繳納小計</span>
+          <span style={{fontFamily:"monospace",fontWeight:700,color:C.exp}}>-${fmt(contribTotal)}</span>
         </div>
       </Card>
     )}
-
-    {/* 結餘大字 */}
-    {(inc>0||exp>0||contribTotal>0) && (
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:13, padding:16 }}>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:12 }}>
-          <MiniBox label="個人支出" value={exp}           color={C.exp} />
-          <MiniBox label="公積金"   value={contribTotal}  color={C.gold} />
-          <MiniBox label="合計支出" value={exp+contribTotal} color={C.exp} />
+    {(inc>0||exp>0||contribTotal>0)&&(
+      <div style={{background:C.card,border:"1px solid "+C.border,borderRadius:13,padding:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+          <MiniBox label="個人支出" value={exp} color={C.exp}/><MiniBox label="公積金" value={contribTotal} color={C.gold}/><MiniBox label="合計支出" value={exp+contribTotal} color={C.exp}/>
         </div>
-        <div style={{ textAlign:"center", paddingTop:10, borderTop:`1px solid ${C.border}` }}>
-          <div style={{ fontSize:".72rem", color:C.muted, marginBottom:6 }}>本月結餘</div>
-          <div style={{ fontFamily:"monospace", fontSize:"2rem", fontWeight:700, color:bal>=0?C.inc:C.exp }}>
-            {bal>=0?"":"-"}${fmt(Math.abs(bal))}
-          </div>
+        <div style={{textAlign:"center",paddingTop:10,borderTop:"1px solid "+C.border}}>
+          <div style={{fontSize:".72rem",color:C.muted,marginBottom:6}}>本月結餘</div>
+          <div style={{fontFamily:"monospace",fontSize:"2rem",fontWeight:700,color:bal>=0?C.inc:C.exp}}>{bal>=0?"":"-"}${fmt(Math.abs(bal))}</div>
         </div>
       </div>
     )}
   </>);
 }
 
-// ════════════════════════════════════════════════════════
-// 共用元件
-// ════════════════════════════════════════════════════════
-function DigitInput({ value, onChange, small }) {
-  const ref = useRef();
-  const [focus, setFocus] = useState(false);
-  const str    = String(value||0);
-  const padded = str.padStart(5,"0");
-  const sig    = 5 - str.length;
-  const W=small?34:42, H=small?42:52, FS=small?"1.1rem":"1.4rem";
-  return (
-    <div style={{ position:"relative", display:"inline-flex", alignItems:"center", gap:4, cursor:"text" }}
-      onClick={()=>ref.current?.focus()}>
-      {padded.split("").map((d,i)=>{
-        const active = i>=sig && value>0;
-        return (
-          <div key={i} style={{ width:W, height:H, background:C.card, border:`1.5px solid ${focus?C.acc:active?C.acc:C.border}`, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"monospace", fontSize:FS, fontWeight:700, color:active?C.text:C.muted, boxShadow:focus?`0 0 0 2px ${C.acc}22`:"none" }}>{d}</div>
-        );
-      })}
-      <span style={{ color:C.muted, fontSize:".82rem", marginLeft:3 }}>元</span>
-      <input ref={ref} type="tel" inputMode="numeric" pattern="[0-9]*"
-        style={{ position:"absolute", inset:0, opacity:0.01, width:"100%", height:"100%", cursor:"text", border:"none", background:"transparent", fontSize:"16px" }}
-        value={value||""} onFocus={()=>setFocus(true)} onBlur={()=>setFocus(false)}
-        onChange={e=>{ const v=e.target.value.replace(/\D/g,"").slice(0,5); onChange(v?parseInt(v):0); }} />
-    </div>
+// ── 純 CSS 長條圖（不需外部套件）────────────────────────
+function CSSBarChart({ data }) {
+  if (!data || data.length === 0) return (
+    <div style={{textAlign:"center",padding:"20px 0",color:C.muted,fontSize:".85rem"}}>本月尚無資料</div>
   );
-}
-
-function Card({ title, children }) {
+  const max = Math.max(...data.map(d => Math.max(d.alloc, d.spent)), 1);
   return (
-    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:13, padding:14, marginBottom:12 }}>
-      {title && <div style={{ fontSize:".67rem", color:C.muted, textTransform:"uppercase", letterSpacing:1, marginBottom:12 }}>{title}</div>}
-      {children}
+    <div style={{overflowX:"auto"}}>
+      <div style={{display:"flex",alignItems:"flex-end",gap:8,minHeight:160,padding:"0 4px 8px",minWidth:data.length*64}}>
+        {data.map((d,i) => (
+          <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+            <div style={{width:"100%",display:"flex",gap:3,alignItems:"flex-end",height:130}}>
+              <div style={{flex:1,background:C.blue,borderRadius:"4px 4px 0 0",height:Math.max((d.alloc/max*130),2)+"px",transition:"height .4s",minWidth:8,position:"relative"}} title={"分配 $"+fmt(d.alloc)}>
+                {d.alloc>0&&<div style={{position:"absolute",top:-18,left:"50%",transform:"translateX(-50%)",fontSize:".55rem",color:C.blue,whiteSpace:"nowrap"}}>${d.alloc>=1000?(d.alloc/1000).toFixed(0)+"k":d.alloc}</div>}
+              </div>
+              <div style={{flex:1,background:C.exp,borderRadius:"4px 4px 0 0",height:Math.max((d.spent/max*130),d.spent>0?2:0)+"px",transition:"height .4s",minWidth:8,position:"relative"}} title={"支出 $"+fmt(d.spent)}>
+                {d.spent>0&&<div style={{position:"absolute",top:-18,left:"50%",transform:"translateX(-50%)",fontSize:".55rem",color:C.exp,whiteSpace:"nowrap"}}>${d.spent>=1000?(d.spent/1000).toFixed(0)+"k":d.spent}</div>}
+              </div>
+            </div>
+            <div style={{fontSize:".65rem",color:C.muted,textAlign:"center"}}>{d.icon}</div>
+            <div style={{fontSize:".6rem",color:C.muted,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",width:"100%"}}>{d.name}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:"flex",justifyContent:"center",gap:16,marginTop:4}}>
+        {[["分配",C.blue],["支出",C.exp]].map(([l,col])=>(
+          <div key={l} style={{display:"flex",alignItems:"center",gap:4,fontSize:".75rem",color:C.muted}}>
+            <div style={{width:10,height:10,borderRadius:2,background:col}}/>{l}
+          </div>
+        ))}
+      </div>
     </div>
-  );
-}
-
-function SL({ children }) {
-  return <div style={{ fontSize:".67rem", color:C.muted, textTransform:"uppercase", letterSpacing:1, marginBottom:7 }}>{children}</div>;
-}
-
-function MiniBox({ label, value, color }) {
-  const col = color || (value>=0 ? C.inc : C.exp);
-  return (
-    <div style={{ background:C.surf, borderRadius:9, padding:"8px 6px", textAlign:"center" }}>
-      <div style={{ fontSize:".62rem", color:C.muted, marginBottom:4 }}>{label}</div>
-      <div style={{ fontFamily:"monospace", fontSize:".88rem", fontWeight:700, color:col }}>${fmt(value)}</div>
-    </div>
-  );
-}
-
-function Av({ color, children }) {
-  return (
-    <div style={{ width:36, height:36, borderRadius:"50%", background:color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:".78rem", fontWeight:700, flexShrink:0, color:"#fff" }}>
-      {children}
-    </div>
-  );
-}
-
-function GBtn({ children, onClick }) {
-  return <button onClick={onClick} style={{ background:"none", border:"none", color:C.acc, fontSize:"1.25rem", cursor:"pointer", padding:"2px 8px", lineHeight:1 }}>{children}</button>;
-}
-
-function DelBtn({ onDel }) {
-  const [armed, setArmed] = useState(false);
-  const tiRef = useRef();
-  const arm = (e) => {
-    e.stopPropagation();
-    if (armed) { onDel(); setArmed(false); clearTimeout(tiRef.current); }
-    else { setArmed(true); tiRef.current = setTimeout(()=>setArmed(false), 2500); }
-  };
-  return (
-    <button onClick={arm} style={{ background:armed?"rgba(248,113,113,.15)":"none", border:armed?`1px solid ${C.exp}`:"none", borderRadius:8, color:armed?C.exp:C.muted, cursor:"pointer", padding:armed?"3px 8px":"2px 6px", fontSize:".78rem", fontWeight:armed?700:400, whiteSpace:"nowrap", transition:"all .15s", flexShrink:0 }}>
-      {armed?"確定？":"🗑"}
-    </button>
   );
 }
 
