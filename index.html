@@ -2,652 +2,699 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0d1f2d">
 <title>FamiFound</title>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
 <style>
-*  { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-body { background:#0d1f2d; font-family:system-ui,sans-serif; }
-select option { background:#1a2f42; }
-input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; }
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:#0d1f2d;color:#e8f4fd;font-family:system-ui,sans-serif;height:100vh;overflow:hidden;}
+#app{display:flex;flex-direction:column;height:100vh;}
+#scr{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:13px 13px 20px;}
+nav{display:flex;background:#152536;border-top:1px solid #243d55;flex-shrink:0;}
+.nt{flex:1;padding:7px 4px 10px;text-align:center;font-size:.68rem;cursor:pointer;color:#6a8fa8;border-top:2px solid transparent;user-select:none;}
+.nt.on{color:#00d4aa;border-top-color:#00d4aa;}
+.ni{font-size:1.2rem;margin-bottom:1px;}
+.card{background:#1a2f42;border:1px solid #243d55;border-radius:13px;padding:14px;margin-bottom:12px;}
+.ct{font-size:.67rem;color:#6a8fa8;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.mbox{background:#152536;border-radius:9px;padding:8px 6px;text-align:center;}
+.mlbl{font-size:.62rem;color:#6a8fa8;margin-bottom:4px;}
+.mval{font-family:monospace;font-size:.88rem;font-weight:700;}
+.c-i{color:#2dd4bf;}.c-e{color:#f87171;}.c-g{color:#ffd166;}.c-b{color:#4fc3f7;}.c-m{color:#6a8fa8;}
+input,select,textarea{width:100%;background:#1a2f42;border:1px solid #243d55;border-radius:9px;color:#e8f4fd;padding:9px 12px;font-size:.9rem;font-family:inherit;outline:none;-webkit-appearance:none;}
+textarea{resize:none;height:52px;}
+.btn{width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#00d4aa,#00b894);color:#0d1f2d;font-size:.92rem;font-weight:700;cursor:pointer;}
+.btn-g{padding:8px 16px;border-radius:9px;border:none;background:linear-gradient(135deg,#00d4aa,#00b894);color:#0d1f2d;font-weight:700;cursor:pointer;font-size:.85rem;white-space:nowrap;}
+.btn-w{padding:8px 14px;border-radius:9px;border:1px solid #243d55;background:none;color:#6a8fa8;cursor:pointer;font-size:.85rem;white-space:nowrap;}
+.btn-dis{background:#243d55;color:#6a8fa8;cursor:default;}
+.chip{display:flex;align-items:center;gap:4px;padding:6px 14px;border-radius:20px;cursor:pointer;user-select:none;font-size:.83rem;border:1.5px solid #243d55;color:#6a8fa8;background:#152536;}
+.chip.on{border-color:#00d4aa;color:#00d4aa;background:rgba(0,212,170,.1);}
+.row{display:flex;align-items:center;gap:8px;}
+.row-sb{display:flex;align-items:flex-start;justify-content:space-between;gap:4px;}
+.sl{font-size:.67rem;color:#6a8fa8;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;}
+.sep{border:none;border-bottom:1px solid #243d55;margin:0;}
+.delbtn{background:none;border:none;color:#6a8fa8;cursor:pointer;padding:3px 8px;font-size:.8rem;border-radius:6px;white-space:nowrap;flex-shrink:0;}
+.delbtn.armed{background:rgba(248,113,113,.15);border:1px solid #f87171;color:#f87171;font-weight:700;}
+.av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;color:#fff;flex-shrink:0;}
+.dig-wrap{position:relative;display:inline-flex;align-items:center;gap:4px;cursor:text;}
+.dig{display:flex;align-items:center;justify-content:center;border-radius:8px;font-family:monospace;font-weight:700;}
+.dig.lg{width:42px;height:52px;font-size:1.4rem;}
+.dig.sm{width:34px;height:42px;font-size:1.1rem;}
+.dig-inp{position:absolute;inset:0;opacity:.01;width:100%;height:100%;border:none;background:transparent;font-size:16px;}
+.dig-unit{color:#6a8fa8;font-size:.82rem;margin-left:3px;}
+.type-tog{display:flex;gap:8px;margin-bottom:12px;}
+.tbtn{flex:1;padding:9px 4px;border-radius:9px;border:1px solid #243d55;background:#152536;color:#6a8fa8;cursor:pointer;font-size:.87rem;font-weight:600;text-align:center;transition:all .15s;}
+.tbtn.inc{border-color:#2dd4bf;background:rgba(45,212,191,.12);color:#2dd4bf;}
+.tbtn.exp{border-color:#f87171;background:rgba(248,113,113,.12);color:#f87171;}
+.rec{display:flex;align-items:flex-start;gap:9px;padding:10px 0;border-bottom:1px solid #243d55;}
+.rec:last-child{border-bottom:none;}
+.bar-wrap{overflow-x:auto;}
+.bar-group{display:flex;align-items:flex-end;gap:8px;min-height:160px;padding:22px 4px 8px;}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:48px;}
+.bar-bars{width:100%;display:flex;gap:3px;align-items:flex-end;height:120px;}
+.bar{flex:1;border-radius:4px 4px 0 0;position:relative;min-width:8px;}
+.bar-lbl{position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:.55rem;white-space:nowrap;}
+.prog{height:7px;background:#243d55;border-radius:4px;overflow:hidden;margin-top:12px;}
+.prog-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#00d4aa,#ffd166);}
+.legend{display:flex;justify-content:center;gap:16px;margin-top:6px;}
+.legend-dot{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;}
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel" data-presets="react">
-const { useState, useRef, useEffect } = React;
-
-const DEF_MEM = [
-  { id:1, name:"老公", color:"#2196F3", defaultAmt:25000 },
-  { id:2, name:"老婆", color:"#E91E63", defaultAmt:25000 },
-];
-const DEF_CATS = [
-  { id:1, name:"家用", icon:"🏠", defPP:7000 },
-  { id:2, name:"小孩", icon:"👶", defPP:6500 },
-  { id:3, name:"旅遊", icon:"✈️", defPP:5000 },
-  { id:4, name:"汽車", icon:"🚗", defPP:3000 },
-  { id:5, name:"房子", icon:"🏗️", defPP:3500 },
-  { id:6, name:"其他", icon:"📦", defPP:0 },
-];
-const EXP_TYPES = [
-  {i:"🍽️",l:"飲食"},{i:"👗",l:"服飾"},{i:"🏠",l:"居家"},{i:"🚗",l:"交通"},
-  {i:"💊",l:"醫療"},{i:"🎮",l:"娛樂"},{i:"🛒",l:"購物"},{i:"📦",l:"其他"},
-];
-const P_INC = [{i:"💰",l:"薪資"},{i:"🏆",l:"獎金"},{i:"📈",l:"投資"},{i:"🎁",l:"紅包"},{i:"💼",l:"兼差"},{i:"📦",l:"其他"}];
-const P_EXP = [{i:"🍽️",l:"飲食"},{i:"👗",l:"服飾"},{i:"🚗",l:"交通"},{i:"💊",l:"醫療"},{i:"🎮",l:"娛樂"},{i:"🛒",l:"購物"},{i:"📦",l:"其他"}];
-const CAT_ICON_POOL = ["🎯","💡","🌟","📚","💪","🔑","🎪","🧩"];
-const MCOLS = ["#2196F3","#E91E63","#FF9800","#9C27B0","#00BCD4","#8BC34A"];
-
-const C = {
-  bg:"#0d1f2d", surf:"#152536", card:"#1a2f42", border:"#243d55",
-  acc:"#00d4aa", gold:"#ffd166", text:"#e8f4fd", muted:"#6a8fa8",
-  inc:"#2dd4bf", exp:"#f87171", blue:"#4fc3f7",
-};
-
-const LS = {
-  get:(k,d)=>{ try{ const v=localStorage.getItem(k); return v!=null?JSON.parse(v):d; }catch(e){ return d; } },
-  set:(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} },
-};
-const pad  = n => String(n).padStart(2,"0");
-const fmt  = n => Number(n||0).toLocaleString("zh-TW");
-const uid  = () => Date.now()+Math.floor(Math.random()*9999);
-const now_ = () => { const d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes()); };
-const prevMK = (yr,mo) => { let m=mo-1,y=yr; if(m<1){m=12;y--;} return y+"-"+pad(m); };
-
-const IS = { background:C.card, border:"1px solid "+C.border, borderRadius:9, color:C.text, padding:"8px 10px", fontSize:".88rem", fontFamily:"inherit", outline:"none" };
-const gBtn = { padding:"8px 16px", borderRadius:9, border:"none", background:"linear-gradient(135deg,"+C.acc+",#00b894)", color:"#0d1f2d", fontWeight:700, cursor:"pointer", fontSize:".85rem", whiteSpace:"nowrap" };
-const wBtn = { padding:"8px 14px", borderRadius:9, border:"1px solid "+C.border, background:"none", color:C.muted, cursor:"pointer", fontSize:".85rem", whiteSpace:"nowrap" };
-const tabS = on => ({ flex:1, padding:"7px 4px 10px", textAlign:"center", fontSize:".68rem", cursor:"pointer", color:on?C.acc:C.muted, borderTop:on?"2px solid "+C.acc:"2px solid transparent", userSelect:"none" });
-const dS = { background:"none", border:"none", color:C.muted, cursor:"pointer", padding:"2px 5px", fontSize:".9rem" };
-
-// ── 共用元件 ─────────────────────────────────────────────
-function Card({ title, children }) {
-  return (
-    <div style={{background:C.card,border:"1px solid "+C.border,borderRadius:13,padding:14,marginBottom:12}}>
-      {title&&<div style={{fontSize:".67rem",color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>{title}</div>}
-      {children}
+<div id="app">
+  <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04070944</div>
+    <div style="display:flex;align-items:center;gap:2px;">
+      <button id="prev-mo" style="background:none;border:none;color:#00d4aa;font-size:1.3rem;cursor:pointer;padding:2px 8px;">‹</button>
+      <span id="mo-lbl" style="font-family:monospace;font-size:.82rem;min-width:66px;text-align:center;"></span>
+      <button id="next-mo" style="background:none;border:none;color:#00d4aa;font-size:1.3rem;cursor:pointer;padding:2px 8px;">›</button>
     </div>
-  );
+  </div>
+  <div id="scr"></div>
+  <nav id="nav">
+    <div class="nt on" data-tab="0"><div class="ni">🏦</div>繳納</div>
+    <div class="nt" data-tab="1"><div class="ni">📊</div>分配</div>
+    <div class="nt" data-tab="2"><div class="ni">📒</div>記帳</div>
+    <div class="nt" data-tab="3"><div class="ni">📈</div>總計</div>
+    <div class="nt" data-tab="4"><div class="ni">👤</div>個人</div>
+  </nav>
+</div>
+
+<script>
+// ════ 資料 ══════════════════════════════════════════════
+const LS={
+  get:(k,d)=>{try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch(e){return d;}},
+  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+};
+const pad=n=>String(n).padStart(2,'0');
+const fmt=n=>Number(n||0).toLocaleString('zh-TW');
+const uid=()=>Date.now()+Math.floor(Math.random()*9999);
+const now_=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());};
+const prevMK=(yr,mo)=>{let m=mo-1,y=yr;if(m<1){m=12;y--;}return y+'-'+pad(m);};
+
+const DEF_MEM=[{id:1,name:'老公',color:'#2196F3',defaultAmt:25000},{id:2,name:'老婆',color:'#E91E63',defaultAmt:25000}];
+const DEF_CATS=[
+  {id:1,name:'家用',icon:'🏠',defPP:7000},{id:2,name:'小孩',icon:'👶',defPP:6500},
+  {id:3,name:'旅遊',icon:'✈️',defPP:5000},{id:4,name:'汽車',icon:'🚗',defPP:3000},
+  {id:5,name:'房子',icon:'🏗️',defPP:3500},{id:6,name:'其他',icon:'📦',defPP:0},
+];
+const EXP_TYPES=[{i:'🍽️',l:'飲食'},{i:'👗',l:'服飾'},{i:'🏠',l:'居家'},{i:'🚗',l:'交通'},{i:'💊',l:'醫療'},{i:'🎮',l:'娛樂'},{i:'🛒',l:'購物'},{i:'📦',l:'其他'}];
+const P_INC=[{i:'💰',l:'薪資'},{i:'🏆',l:'獎金'},{i:'📈',l:'投資'},{i:'🎁',l:'紅包'},{i:'💼',l:'兼差'},{i:'📦',l:'其他'}];
+const P_EXP=[{i:'🍽️',l:'飲食'},{i:'👗',l:'服飾'},{i:'🚗',l:'交通'},{i:'💊',l:'醫療'},{i:'🎮',l:'娛樂'},{i:'🛒',l:'購物'},{i:'📦',l:'其他'}];
+const CAT_ICONS=['🎯','💡','🌟','📚','💪','🔑','🎪','🧩'];
+
+// ════ 狀態 ══════════════════════════════════════════════
+const now=new Date();
+let S={
+  yr:now.getFullYear(), mo:now.getMonth()+1, tab:0,
+  members:    LS.get('fm_mem',   DEF_MEM),
+  contribs:   LS.get('fm_cont',  []),
+  categories: LS.get('fm_cats',  DEF_CATS),
+  allocs:     LS.get('fm_alloc', []),
+  expenses:   LS.get('fm_exps',  []),
+  extras:     LS.get('fm_extras',[]),
+  personal:   LS.get('fm_pers',  []),
+  selfId:     LS.get('fm_selfId','1'),
+  // UI 暫態
+  contribOpen:{}, editDef:{}, editNm:{}, nmVal:{}, defVal:{},
+  allocAddOpen:false, allocNewName:'',
+  ledgerCat:null, ledgerType:null, ledgerAmt:0, ledgerNote:'',
+  extraOpen:{}, extraMode:{},
+  persType:'income', persCat:null, persAmt:0, persNote:'',
+  armedDel:{},
+};
+function save(key,val){S[key]=val;LS.set('fm_'+key,val);}
+function mkey(){return S.yr+'-'+pad(S.mo);}
+function pmkey(){return prevMK(S.yr,S.mo);}
+function monthTotal(){return S.contribs.filter(c=>c.month===mkey()).reduce((s,c)=>s+c.amount,0);}
+function catBalance(catId,month){
+  const a=(S.allocs.find(x=>x.catId===catId&&x.month===month)||{amount:0}).amount;
+  const e=S.extras.filter(x=>x.catId===catId&&x.month===month).reduce((s,x)=>s+x.amount,0);
+  const s=S.expenses.filter(x=>x.catId===catId&&x.date.startsWith(month)).reduce((s,x)=>s+x.amount,0);
+  return a+e-s;
 }
-function SL({ children }) {
-  return <div style={{fontSize:".67rem",color:C.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:7}}>{children}</div>;
+
+// ════ 渲染 ══════════════════════════════════════════════
+function render(){
+  document.getElementById('mo-lbl').textContent=S.yr+'/'+pad(S.mo);
+  document.querySelectorAll('.nt').forEach(el=>el.classList.toggle('on',el.dataset.tab==S.tab));
+  const scr=document.getElementById('scr');
+  scr.innerHTML='';
+  const builders=[page0,page1,page2,page3,page4];
+  scr.appendChild(builders[S.tab]());
+  scr.scrollTop=0;
 }
-function MiniBox({ label, value, color }) {
-  const col=color||(value>=0?C.inc:C.exp);
-  return (
-    <div style={{background:C.surf,borderRadius:9,padding:"8px 6px",textAlign:"center"}}>
-      <div style={{fontSize:".62rem",color:C.muted,marginBottom:4}}>{label}</div>
-      <div style={{fontFamily:"monospace",fontSize:".88rem",fontWeight:700,color:col}}>${fmt(value)}</div>
-    </div>
-  );
+
+// ════ 工具 HTML ═════════════════════════════════════════
+function el(tag,attrs={},children=[]){
+  const e=document.createElement(tag);
+  Object.entries(attrs).forEach(([k,v])=>{
+    if(k==='style'&&typeof v==='object')Object.assign(e.style,v);
+    else if(k.startsWith('on'))e.addEventListener(k.slice(2).toLowerCase(),v);
+    else if(k==='className')e.className=v;
+    else e.setAttribute(k,v);
+  });
+  children.forEach(c=>{if(c!=null&&c!==false){if(typeof c==='string'){e.appendChild(document.createTextNode(c));}else{e.appendChild(c);}}});
+  return e;
 }
-function Av({ color, children }) {
-  return <div style={{width:36,height:36,borderRadius:"50%",background:color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:".78rem",fontWeight:700,flexShrink:0,color:"#fff"}}>{children}</div>;
+function div(attrs,children){return el('div',attrs,children);}
+function span(attrs,children){return el('span',attrs,children);}
+function btn(attrs,children){return el('button',attrs,children);}
+function inp(attrs){return el('input',attrs);}
+function card(title,children){
+  const d=div({className:'card'},[]);
+  if(title)d.appendChild(div({className:'ct'},[title]));
+  children.forEach(c=>{if(c)d.appendChild(c);});
+  return d;
 }
-function GBtn({ children, onClick }) {
-  return <button onClick={onClick} style={{background:"none",border:"none",color:C.acc,fontSize:"1.25rem",cursor:"pointer",padding:"2px 8px",lineHeight:1}}>{children}</button>;
+function sl(txt){return div({className:'sl'},[txt]);}
+function mbox(label,value,colorClass){
+  return div({className:'mbox'},[
+    div({className:'mlbl'},[label]),
+    div({className:'mval '+colorClass},['\$'+fmt(value)])
+  ]);
 }
-function DelBtn({ onDel }) {
-  const [armed,setArmed]=useState(false);
-  const ti=useRef();
-  const arm=e=>{
+function g3(...items){const d=div({className:'g3'},[]);items.forEach(i=>{if(i)d.appendChild(i);});return d;}
+function g2(...items){const d=div({className:'g2'},[]);items.forEach(i=>{if(i)d.appendChild(i);});return d;}
+function sep(){return el('hr',{className:'sep'});}
+function delBtn(key,onDel){
+  const b=btn({className:'delbtn'+(S.armedDel[key]?' armed':''),onClick:e=>{
     e.stopPropagation();
-    if(armed){onDel();setArmed(false);clearTimeout(ti.current);}
-    else{setArmed(true);ti.current=setTimeout(()=>setArmed(false),2500);}
-  };
-  return <button onClick={arm} style={{background:armed?"rgba(248,113,113,.15)":"none",border:armed?"1px solid "+C.exp:"none",borderRadius:8,color:armed?C.exp:C.muted,cursor:"pointer",padding:armed?"3px 8px":"2px 6px",fontSize:".78rem",fontWeight:armed?700:400,whiteSpace:"nowrap",flexShrink:0}}>{armed?"確定？":"🗑"}</button>;
+    if(S.armedDel[key]){delete S.armedDel[key];onDel();}
+    else{S.armedDel[key]=setTimeout(()=>{delete S.armedDel[key];render();},2500);render();}
+  }},[S.armedDel[key]?'確定？':'🗑']);
+  return b;
 }
-function DigitInput({ value, onChange, small }) {
-  const ref=useRef();
-  const [focus,setFocus]=useState(false);
-  const str=String(value||0),padded=str.padStart(5,"0"),sig=5-str.length;
-  const W=small?34:42,H=small?42:52,FS=small?"1.1rem":"1.4rem";
-  return (
-    <div style={{position:"relative",display:"inline-flex",alignItems:"center",gap:4,cursor:"text"}} onClick={()=>ref.current&&ref.current.focus()}>
-      {padded.split("").map((d,i)=>{
-        const on=i>=sig&&value>0;
-        return <div key={i} style={{width:W,height:H,background:C.card,border:"1.5px solid "+(focus?C.acc:on?C.acc:C.border),borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"monospace",fontSize:FS,fontWeight:700,color:on?C.text:C.muted}}>{d}</div>;
-      })}
-      <span style={{color:C.muted,fontSize:".82rem",marginLeft:3}}>元</span>
-      <input ref={ref} type="tel" inputMode="numeric" pattern="[0-9]*"
-        style={{position:"absolute",inset:0,opacity:0.01,width:"100%",height:"100%",cursor:"text",border:"none",background:"transparent",fontSize:"16px"}}
-        value={value||""} onFocus={()=>setFocus(true)} onBlur={()=>setFocus(false)}
-        onChange={e=>{const v=e.target.value.replace(/\D/g,"").slice(0,5);onChange(v?parseInt(v):0);}} />
-    </div>
-  );
+function digitInput(value,onChange,small){
+  const str=String(value||0),padded=str.padStart(5,'0'),sig=5-str.length;
+  const W=small?34:42,H=small?42:52,FS=small?'1.1rem':'1.4rem';
+  const wrap=div({className:'dig-wrap'},[]);
+  padded.split('').forEach((d,i)=>{
+    const on=i>=sig&&value>0;
+    const dv=div({className:'dig '+(small?'sm':'lg'),style:{
+      width:W+'px',height:H+'px',fontSize:FS,
+      background:'#1a2f42',color:on?'#e8f4fd':'#6a8fa8',
+      border:'1.5px solid '+(on?'#00d4aa':'#243d55')
+    }},[d]);
+    wrap.appendChild(dv);
+  });
+  wrap.appendChild(span({className:'dig-unit'},['元']));
+  const hidden=inp({type:'tel',inputMode:'numeric',pattern:'[0-9]*',className:'dig-inp',value:value||''});
+  hidden.addEventListener('input',e=>{const v=e.target.value.replace(/\D/g,'').slice(0,5);onChange(v?parseInt(v):0);});
+  wrap.appendChild(hidden);
+  return wrap;
 }
-
-// ── App ──────────────────────────────────────────────────
-function App() {
-  const n=new Date();
-  const [yr,setYr]=useState(n.getFullYear());
-  const [mo,setMo]=useState(n.getMonth()+1);
-  const [tab,setTab]=useState(0);
-  const [members,    setMembers]    = useState(()=>LS.get("fm_mem",   DEF_MEM));
-  const [contribs,   setContribs]   = useState(()=>LS.get("fm_cont",  []));
-  const [categories, setCategories] = useState(()=>LS.get("fm_cats",  DEF_CATS));
-  const [allocs,     setAllocs]     = useState(()=>LS.get("fm_alloc", []));
-  const [expenses,   setExpenses]   = useState(()=>LS.get("fm_exps",  []));
-  const [extras,     setExtras]     = useState(()=>LS.get("fm_extras",[]));
-  const [personal,   setPersonal]   = useState(()=>LS.get("fm_pers",  []));
-
-  const mkey=yr+"-"+pad(mo), pmkey=prevMK(yr,mo);
-
-  const sv={
-    mem:    v=>{setMembers(v);    LS.set("fm_mem",   v);},
-    cont:   v=>{setContribs(v);   LS.set("fm_cont",  v);},
-    cats:   v=>{setCategories(v); LS.set("fm_cats",  v);},
-    alloc:  v=>{setAllocs(v);     LS.set("fm_alloc", v);},
-    exps:   v=>{setExpenses(v);   LS.set("fm_exps",  v);},
-    extras: v=>{setExtras(v);     LS.set("fm_extras",v);},
-    pers:   v=>{setPersonal(v);   LS.set("fm_pers",  v);},
-  };
-
-  const chgMo=d=>{let m=mo+d,y=yr;if(m>12){m=1;y++;}if(m<1){m=12;y--;}setMo(m);setYr(y);};
-  const monthTotal=contribs.filter(c=>c.month===mkey).reduce((s,c)=>s+c.amount,0);
-
-  const saveAlloc=map=>{
-    const base=allocs.filter(a=>a.month!==mkey);
-    const news=Object.entries(map).filter(([,v])=>v>0).map(([catId,amount])=>({id:uid(),catId:Number(catId),amount,month:mkey}));
-    sv.alloc([...base,...news]);
-  };
-
-  const catBalance=(catId,month)=>{
-    const a=(allocs.find(x=>x.catId===catId&&x.month===month)||{amount:0}).amount;
-    const e=extras.filter(x=>x.catId===catId&&x.month===month).reduce((s,x)=>s+x.amount,0);
-    const s=expenses.filter(x=>x.catId===catId&&x.date.startsWith(month)).reduce((s,x)=>s+x.amount,0);
-    return a+e-s;
-  };
-
-  const shared={mkey,pmkey,monthTotal,members,contribs,categories,allocs,expenses,extras,catBalance,personal};
-
-  return (
-    <div style={{display:"flex",flexDirection:"column",height:"100vh",background:C.bg,color:C.text,overflow:"hidden"}}>
-      <div style={{background:C.surf,borderBottom:"1px solid "+C.border,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-        <div style={{fontSize:"1rem",fontWeight:700,color:C.muted,letterSpacing:1}}>💰 v04070944</div>
-        <div style={{display:"flex",alignItems:"center",gap:2}}>
-          <GBtn onClick={()=>chgMo(-1)}>‹</GBtn>
-          <span style={{fontFamily:"monospace",fontSize:".82rem",minWidth:66,textAlign:"center"}}>{yr}/{pad(mo)}</span>
-          <GBtn onClick={()=>chgMo(1)}>›</GBtn>
-        </div>
-      </div>
-      <div style={{flex:1,overflowY:"auto",padding:"13px 13px 22px",WebkitOverflowScrolling:"touch"}}>
-        {tab===0&&<PageContrib {...shared} sv={sv}/>}
-        {tab===1&&<PageAlloc  {...shared} saveAlloc={saveAlloc} sv={sv}/>}
-        {tab===2&&<PageLedger {...shared} sv={sv}/>}
-        {tab===3&&<PageSummary categories={categories} allocs={allocs} expenses={expenses}/>}
-        {tab===4&&<PagePersonal mkey={mkey} personal={personal} contribs={contribs} members={members} sv={sv}/>}
-      </div>
-      <nav style={{display:"flex",background:C.surf,borderTop:"1px solid "+C.border,flexShrink:0}}>
-        {[["🏦","繳納"],["📊","分配"],["📒","記帳"],["📈","總計"],["👤","個人"]].map(([ico,lbl],i)=>(
-          <div key={i} onClick={()=>setTab(i)} style={tabS(tab===i)}>
-            <div style={{fontSize:"1.2rem",marginBottom:1}}>{ico}</div>{lbl}
-          </div>
-        ))}
-      </nav>
-    </div>
-  );
+function typeToggle(cur,onInc,onExp){
+  return div({className:'type-tog'},[
+    btn({className:'tbtn'+(cur==='income'?' inc':''),onClick:onInc},['＋ 收入']),
+    btn({className:'tbtn'+(cur==='expense'?' exp':''),onClick:onExp},['－ 支出']),
+  ]);
+}
+function catGrid(cats,selected,onSelect){
+  const g=div({style:{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'7px',marginBottom:'14px'}},[]);
+  cats.forEach(({i,l})=>{
+    const c=div({style:{padding:'8px 4px 7px',borderRadius:'10px',textAlign:'center',cursor:'pointer',userSelect:'none',background:selected===l?'rgba(0,212,170,.1)':'#1a2f42',border:'1.5px solid '+(selected===l?'#00d4aa':'#243d55')},onClick:()=>onSelect(l)},[
+      div({style:{fontSize:'1.2rem',marginBottom:'2px'}},[i]),
+      div({style:{fontSize:'.63rem',color:selected===l?'#00d4aa':'#6a8fa8'}},[l]),
+    ]);
+    g.appendChild(c);
+  });
+  return g;
+}
+function cssBarChart(data){
+  if(!data||!data.length)return div({style:{textAlign:'center',padding:'20px 0',color:'#6a8fa8',fontSize:'.85rem'}},['本月尚無資料']);
+  const max=Math.max(...data.map(d=>Math.max(d.alloc,d.spent)),1);
+  const wrap=div({className:'bar-wrap'},[]);
+  const group=div({className:'bar-group'},[]);
+  data.forEach(d=>{
+    const col=div({className:'bar-col'},[]);
+    const bars=div({className:'bar-bars'},[]);
+    const bA=div({className:'bar',style:{background:'#4fc3f7',height:Math.max(d.alloc/max*120,2)+'px'}},[]);
+    if(d.alloc>0){const lbl=div({className:'bar-lbl',style:{color:'#4fc3f7'}},[d.alloc>=1000?(d.alloc/1000).toFixed(0)+'k':String(d.alloc)]);bA.appendChild(lbl);}
+    const bS=div({className:'bar',style:{background:'#f87171',height:Math.max(d.spent/max*120,d.spent>0?2:0)+'px'}},[]);
+    if(d.spent>0){const lbl=div({className:'bar-lbl',style:{color:'#f87171'}},[d.spent>=1000?(d.spent/1000).toFixed(0)+'k':String(d.spent)]);bS.appendChild(lbl);}
+    bars.appendChild(bA);bars.appendChild(bS);
+    col.appendChild(bars);
+    col.appendChild(div({style:{fontSize:'.7rem',textAlign:'center'}},[d.icon]));
+    col.appendChild(div({style:{fontSize:'.6rem',color:'#6a8fa8',textAlign:'center',overflow:'hidden',whiteSpace:'nowrap',width:'100%'}},[d.name]));
+    group.appendChild(col);
+  });
+  wrap.appendChild(group);
+  const legend=div({className:'legend'},[]);
+  [['分配','#4fc3f7'],['支出','#f87171']].forEach(([l,col])=>{
+    legend.appendChild(div({style:{display:'flex',alignItems:'center',fontSize:'.75rem',color:'#6a8fa8'}},[
+      span({style:{display:'inline-block',width:'10px',height:'10px',borderRadius:'2px',background:col,marginRight:'4px'}},[]),l
+    ]));
+  });
+  wrap.appendChild(legend);
+  return wrap;
 }
 
-// ── 第一頁：繳納 ─────────────────────────────────────────
-function PageContrib({mkey,members,contribs,monthTotal,sv}){
-  const monthC=contribs.filter(c=>c.month===mkey);
-  const target=members.reduce((s,m)=>s+m.defaultAmt,0);
+// ════ 第一頁：繳納 ══════════════════════════════════════
+function page0(){
+  const mk=mkey(),mt=monthTotal();
+  const target=S.members.reduce((s,m)=>s+m.defaultAmt,0);
+  const monthC=S.contribs.filter(c=>c.month===mk);
   const paidMap={};monthC.forEach(c=>{paidMap[c.memberId]=c;});
-  const paidAll=monthC.length>=members.length;
-  const pct=target>0?Math.min(monthTotal/target*100,100):0;
-  return (<>
-    <div style={{background:C.card,border:"1px solid "+C.border,borderRadius:13,padding:16,marginBottom:12}}>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
-        <MiniBox label="目標" value={target} color={C.gold}/>
-        <MiniBox label="已收" value={monthTotal} color={monthTotal>=target?C.inc:C.exp}/>
-        <div style={{background:C.surf,borderRadius:9,padding:"8px 6px",textAlign:"center"}}>
-          <div style={{fontSize:".62rem",color:C.muted,marginBottom:4}}>狀態</div>
-          <div style={{fontSize:".82rem",fontWeight:700,color:paidAll?C.inc:C.gold}}>{paidAll?"✅ 完成":"⏳ 待繳"}</div>
-        </div>
-      </div>
-      <div style={{height:7,background:C.border,borderRadius:4,overflow:"hidden"}}>
-        <div style={{height:"100%",width:pct.toFixed(0)+"%",background:"linear-gradient(90deg,"+C.acc+","+C.gold+")",borderRadius:4,transition:"width .4s"}}/>
-      </div>
-    </div>
-    <Card title="成員繳納狀況">
-      {members.map(m=>(
-        <ContribRow key={m.id} member={m} record={paidMap[String(m.id)]} mkey={mkey}
-          onPay={c=>sv.cont([...contribs,c])}
-          onDel={id=>sv.cont(contribs.filter(c=>c.id!==id))}
-          onUpdateDefault={amt=>sv.mem(members.map(mm=>mm.id===m.id?{...mm,defaultAmt:amt}:mm))}
-          onRename={nm=>sv.mem(members.map(mm=>mm.id===m.id?{...mm,name:nm}:mm))}
-        />
-      ))}
-    </Card>
-  </>);
-}
+  const paidAll=monthC.length>=S.members.length;
+  const pct=target>0?Math.min(mt/target*100,100):0;
 
-function ContribRow({member,record,mkey,onPay,onDel,onUpdateDefault,onRename}){
-  const [open,setOpen]=useState(false);
-  const [editDef,setEditDef]=useState(false);
-  const [editNm,setEditNm]=useState(false);
-  const [amt,setAmt]=useState(member.defaultAmt);
-  const [defAmt,setDefAmt]=useState(member.defaultAmt);
-  const [nmVal,setNmVal]=useState(member.name);
+  const wrap=div({},[]);
+
+  // 總覽卡
+  const ov=card(null,[
+    g3(mbox('目標',target,'c-g'),mbox('已收',mt,mt>=target?'c-i':'c-e'),
+      div({className:'mbox'},[div({className:'mlbl'},['狀態']),div({style:{fontSize:'.82rem',fontWeight:700,color:paidAll?'#2dd4bf':'#ffd166'}},[paidAll?'✅ 完成':'⏳ 待繳'])])
+    ),
+    div({className:'prog'},[div({className:'prog-fill',style:{width:pct.toFixed(0)+'%'}},[])]),
+  ]);
+  wrap.appendChild(ov);
+
+  // 成員列
+  const mc=card('成員繳納狀況',[]);
+  S.members.forEach(m=>{
+    mc.appendChild(memberRow(m,paidMap[String(m.id)],mk));
+  });
+  wrap.appendChild(mc);
+  return wrap;
+}
+function memberRow(m,record,mk){
   const paid=!!record;
-  const doPay=()=>{if(!amt)return;onPay({id:uid(),memberId:String(member.id),memberName:member.name,memberColor:member.color,amount:amt,month:mkey,paidAt:now_()});setOpen(false);};
-  return (
-    <div style={{padding:"13px 0",borderBottom:"1px solid "+C.border}}>
-      <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <Av color={member.color}>{member.name[0]}</Av>
-        <div style={{flex:1}}>
-          {editNm?(
-            <div style={{display:"flex",gap:6,marginBottom:5}}>
-              <input autoFocus value={nmVal} onChange={e=>setNmVal(e.target.value)}
-                onBlur={()=>{onRename(nmVal.trim()||member.name);setEditNm(false);}}
-                onKeyDown={e=>{if(e.key==="Enter"){onRename(nmVal.trim()||member.name);setEditNm(false);}}}
-                style={{...IS,width:90,padding:"4px 8px"}}/>
-            </div>
-          ):(
-            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
-              <span style={{fontSize:".9rem",fontWeight:700}}>{member.name}</span>
-              <button onClick={()=>{setNmVal(member.name);setEditNm(true);}} style={{...dS,fontSize:".72rem"}}>✏️ 改名</button>
-            </div>
-          )}
-          {editDef?(
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <DigitInput value={defAmt} onChange={setDefAmt} small/>
-              <button onClick={()=>{onUpdateDefault(defAmt);setEditDef(false);}} style={gBtn}>存</button>
-              <button onClick={()=>setEditDef(false)} style={wBtn}>取消</button>
-            </div>
-          ):(
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{fontSize:".72rem",color:C.muted}}>每月預設 ${fmt(member.defaultAmt)}</span>
-              <button onClick={()=>{setDefAmt(member.defaultAmt);setEditDef(true);}} style={{...dS,fontSize:".72rem"}}>✏️</button>
-            </div>
-          )}
-          {paid?<div style={{fontSize:".72rem",color:C.muted,marginTop:3}}>繳 ${fmt(record.amount)} · {record.paidAt.slice(5,16)}</div>:<div style={{fontSize:".72rem",color:C.exp,marginTop:3}}>⚠️ 本月尚未繳納</div>}
-        </div>
-        {paid?(
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{color:C.inc,fontSize:".82rem",fontWeight:700,background:"rgba(45,212,191,.12)",border:"1px solid "+C.inc,padding:"4px 12px",borderRadius:20}}>✓ 已繳</span>
-            <DelBtn onDel={()=>onDel(record.id)}/>
-          </div>
-        ):(
-          <button onClick={()=>{setAmt(member.defaultAmt);setOpen(o=>!o);}} style={{padding:"6px 16px",borderRadius:20,border:"1px solid "+C.gold,background:"rgba(255,209,102,.1)",color:C.gold,cursor:"pointer",fontSize:".82rem",fontWeight:600,userSelect:"none"}}>
-            {open?"取消":"繳納"}
-          </button>
-        )}
-      </div>
-      {open&&!paid&&(
-        <div style={{marginTop:10,padding:"12px 14px",background:C.surf,borderRadius:10,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-          <span style={{fontSize:".78rem",color:C.muted}}>繳納金額：</span>
-          <DigitInput value={amt} onChange={setAmt} small/>
-          <button onClick={doPay} style={gBtn}>確認繳納</button>
-        </div>
-      )}
-    </div>
-  );
+  const row=div({style:{padding:'13px 0',borderBottom:'1px solid #243d55'}},[]);
+  const top=div({className:'row',style:{gap:'10px'}},[]);
+  const av=div({className:'av',style:{background:m.color}},[m.name[0]]);
+  top.appendChild(av);
+  const info=div({style:{flex:1}},[]);
+
+  // 改名
+  if(S.editNm[m.id]){
+    const ni=inp({type:'text',value:S.nmVal[m.id]||m.name,style:{marginBottom:'5px'}});
+    ni.addEventListener('input',e=>{S.nmVal[m.id]=e.target.value;});
+    ni.addEventListener('blur',()=>doRename(m));
+    ni.addEventListener('keydown',e=>{if(e.key==='Enter')doRename(m);});
+    info.appendChild(ni);
+    setTimeout(()=>ni.focus(),50);
+  } else {
+    const nr=div({className:'row',style:{marginBottom:'3px'}},[
+      span({style:{fontSize:'.9rem',fontWeight:700}},[m.name]),
+      btn({style:{background:'none',border:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.72rem'},onClick:()=>{S.editNm[m.id]=true;S.nmVal[m.id]=m.name;render();}},['✏️ 改名'])
+    ]);
+    info.appendChild(nr);
+  }
+
+  // 預設金額
+  if(S.editDef[m.id]){
+    const dr=div({className:'row',style:{marginBottom:'3px'}},[]);
+    const dg=digitInput(S.defVal[m.id]||m.defaultAmt,v=>{S.defVal[m.id]=v;render();},true);
+    dr.appendChild(dg);
+    dr.appendChild(btn({className:'btn-g',style:{padding:'6px 12px'},onClick:()=>{
+      S.members=S.members.map(mm=>mm.id===m.id?Object.assign({},mm,{defaultAmt:S.defVal[m.id]||m.defaultAmt}):mm);
+      LS.set('fm_mem',S.members);delete S.editDef[m.id];render();
+    }},['存']));
+    dr.appendChild(btn({className:'btn-w',style:{padding:'6px 10px'},onClick:()=>{delete S.editDef[m.id];render();}},['取消']));
+    info.appendChild(dr);
+  } else {
+    const defR=div({className:'row'},[ span({style:{fontSize:'.72rem',color:'#6a8fa8'}},['每月預設 $'+fmt(m.defaultAmt)]),btn({style:{background:'none',border:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.72rem'},onClick:()=>{S.editDef[m.id]=true;S.defVal[m.id]=m.defaultAmt;render();}},['✏️']) ]);
+    info.appendChild(defR);
+  }
+
+  const status=paid?div({style:{fontSize:'.72rem',color:'#6a8fa8',marginTop:'3px'}},['繳 $'+fmt(record.amount)+' · '+record.paidAt.slice(5,16)]):div({style:{fontSize:'.72rem',color:'#f87171',marginTop:'3px'}},['⚠️ 本月尚未繳納']);
+  info.appendChild(status);
+  top.appendChild(info);
+
+  if(paid){
+    const r=div({className:'row'},[span({style:{color:'#2dd4bf',fontSize:'.82rem',fontWeight:700,background:'rgba(45,212,191,.12)',border:'1px solid #2dd4bf',padding:'4px 12px',borderRadius:'20px'}},['✓ 已繳']),delBtn('cont-'+record.id,()=>{save('contribs',S.contribs.filter(c=>c.id!==record.id));render();})]);
+    top.appendChild(r);
+  } else {
+    const pb=btn({style:{padding:'6px 16px',borderRadius:'20px',border:'1px solid #ffd166',background:'rgba(255,209,102,.1)',color:'#ffd166',cursor:'pointer',fontSize:'.82rem',fontWeight:600,userSelect:'none'},onClick:()=>{S.contribOpen[m.id]=!S.contribOpen[m.id];if(S.contribOpen[m.id])S.defVal['pay'+m.id]=m.defaultAmt;render();}},[ S.contribOpen[m.id]?'取消':'繳納' ]);
+    top.appendChild(pb);
+  }
+  row.appendChild(top);
+
+  if(S.contribOpen[m.id]&&!paid){
+    const panel=div({style:{marginTop:'10px',padding:'12px 14px',background:'#152536',borderRadius:'10px',display:'flex',alignItems:'center',gap:'10px',flexWrap:'wrap'}},[]);
+    panel.appendChild(span({style:{fontSize:'.78rem',color:'#6a8fa8'}},['繳納金額：']));
+    panel.appendChild(digitInput(S.defVal['pay'+m.id]||m.defaultAmt,v=>{S.defVal['pay'+m.id]=v;render();},true));
+    panel.appendChild(btn({className:'btn-g',onClick:()=>{
+      const a=S.defVal['pay'+m.id]||m.defaultAmt;
+      if(!a)return;
+      save('contribs',[...S.contribs,{id:uid(),memberId:String(m.id),memberName:m.name,memberColor:m.color,amount:a,month:mkey(),paidAt:now_()}]);
+      delete S.contribOpen[m.id];render();
+    }},['確認繳納']));
+    row.appendChild(panel);
+  }
+  return row;
+}
+function doRename(m){
+  const nm=S.nmVal[m.id]||m.name;
+  S.members=S.members.map(mm=>mm.id===m.id?Object.assign({},mm,{name:nm.trim()||m.name}):mm);
+  LS.set('fm_mem',S.members);delete S.editNm[m.id];render();
 }
 
-// ── 第二頁：分配 ─────────────────────────────────────────
-function PageAlloc({mkey,pmkey,monthTotal,members,categories,allocs,expenses,extras,catBalance,saveAlloc,sv}){
-  const build=()=>{const r={};categories.forEach(c=>{r[c.id]=(allocs.find(a=>a.catId===c.id&&a.month===mkey)||{amount:0}).amount;});return r;};
-  const [local,setLocal]=useState(build);
-  const [showAdd,setShowAdd]=useState(false);
-  const [newName,setNewName]=useState("");
-  useEffect(()=>setLocal(build()),[mkey,allocs.length,categories.length]);
-  const upd=(catId,v)=>{const u={...local,[catId]:v};setLocal(u);saveAlloc(u);};
-  const totalAlloc=Object.values(local).reduce((s,v)=>s+v,0);
-  const diff=monthTotal-totalAlloc;
-  const mSpent=(catId,m)=>expenses.filter(e=>e.catId===catId&&e.date.startsWith(m)).reduce((s,e)=>s+e.amount,0);
-  const mAlloc=(catId,m)=>(allocs.find(a=>a.catId===catId&&a.month===m)||{amount:0}).amount;
-  const addCat=()=>{const nm=newName.trim();if(!nm)return;sv.cats([...categories,{id:uid(),name:nm,icon:CAT_ICON_POOL[categories.length%CAT_ICON_POOL.length],defPP:0}]);setNewName("");setShowAdd(false);};
-  return (<>
-    <Card>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:diff!==0?10:0}}>
-        <MiniBox label="本月公積金" value={monthTotal} color={C.inc}/>
-        <MiniBox label="已分配" value={totalAlloc} color={C.blue}/>
-        <MiniBox label={diff>=0?"未分配":"超額"} value={Math.abs(diff)} color={diff===0?C.muted:diff>0?C.gold:C.exp}/>
-      </div>
-      {diff!==0&&<div style={{fontSize:".75rem",color:diff>0?C.gold:C.exp,textAlign:"center"}}>{diff>0?"⚠️ 還有 $"+fmt(diff)+" 尚未分配":"⚠️ 超額 $"+fmt(-diff)}</div>}
-    </Card>
-    {categories.map(cat=>{
-      const thisA=local[cat.id]||0,thisS=mSpent(cat.id,mkey);
-      const suggest=(cat.defPP||0)*members.length;
-      const catEx=extras.filter(x=>x.catId===cat.id&&x.month===mkey);
-      const exSum=catEx.reduce((s,x)=>s+x.amount,0);
-      const prevBal=catBalance(cat.id,pmkey);
-      const hasHistory=allocs.some(a=>a.catId===cat.id&&a.month===pmkey)||expenses.some(e=>e.catId===cat.id&&e.date.startsWith(pmkey));
-      const manualCarry=extras.find(x=>x.catId===cat.id&&x.month===mkey&&x.type==="carryover");
-      return (
-        <Card key={cat.id}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-            <span style={{fontSize:"1.3rem"}}>{cat.icon}</span>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:700,fontSize:".95rem"}}>{cat.name}</div>
-              {cat.defPP>0&&<div style={{fontSize:".67rem",color:C.muted,marginTop:1}}>每人 ${fmt(cat.defPP)} × {members.length} 人 = <span style={{color:C.gold}}>${fmt(suggest)}</span></div>}
-            </div>
-            <DelBtn onDel={()=>sv.cats(categories.filter(c=>c.id!==cat.id))}/>
-          </div>
-          <div style={{display:"flex",alignItems:"flex-end",gap:10,marginBottom:14,flexWrap:"wrap"}}>
-            <div><SL>本月分配</SL><DigitInput value={thisA} onChange={v=>upd(cat.id,v)} small/></div>
-            {suggest>0&&thisA!==suggest&&<button onClick={()=>upd(cat.id,suggest)} style={{padding:"6px 12px",borderRadius:8,border:"1px solid "+C.gold,background:"rgba(255,209,102,.08)",color:C.gold,cursor:"pointer",fontSize:".76rem",marginBottom:2}}>套用 ${fmt(suggest)}</button>}
-          </div>
-          {catEx.length>0&&<div style={{marginBottom:10}}>{catEx.map(ex=>(
-            <div key={ex.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:C.surf,borderRadius:8,marginBottom:5}}>
-              <span style={{fontSize:".78rem",color:ex.type==="carryover"?C.blue:C.inc,flex:1}}>{ex.type==="carryover"?"↩️ 上月結餘":"🎁 "+ex.label}</span>
-              <span style={{fontFamily:"monospace",fontSize:".82rem",fontWeight:600,color:ex.type==="carryover"?C.blue:C.inc}}>+${fmt(ex.amount)}</span>
-              <DelBtn onDel={()=>sv.extras(extras.filter(x=>x.id!==ex.id))}/>
-            </div>
-          ))}</div>}
-          <ExtraRow catId={cat.id} mkey={mkey} prevBal={prevBal} hasHistory={hasHistory} hasCarryover={!!manualCarry} onAdd={ex=>sv.extras([...extras,ex])}/>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginTop:12}}>
-            <MiniBox label="本月收入" value={thisA+exSum} color={C.inc}/>
-            <MiniBox label="本月支出" value={thisS} color={C.exp}/>
-            <MiniBox label="本月結餘" value={thisA+exSum-thisS}/>
-          </div>
-        </Card>
-      );
-    })}
-    {showAdd?(
-      <Card><SL>新分類名稱</SL>
-        <div style={{display:"flex",gap:8}}>
-          <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCat()} placeholder="例：教育、保險…" style={{...IS,flex:1}}/>
-          <button onClick={addCat} style={gBtn}>新增</button>
-          <button onClick={()=>setShowAdd(false)} style={wBtn}>取消</button>
-        </div>
-      </Card>
-    ):(
-      <button onClick={()=>setShowAdd(true)} style={{width:"100%",padding:"12px",borderRadius:11,border:"1.5px dashed "+C.border,background:"none",color:C.muted,cursor:"pointer",fontSize:".88rem"}}>＋ 新增分類</button>
-    )}
-  </>);
-}
-
-function ExtraRow({catId,mkey,prevBal,hasHistory,hasCarryover,onAdd}){
-  const [open,setOpen]=useState(false);
-  const [mode,setMode]=useState("carryover");
-  const [manAmt,setManAmt]=useState(0);
-  const [subAmt,setSubAmt]=useState(0);
-  const [subLbl,setSubLbl]=useState("");
-  const addCarry=()=>{const amt=hasHistory?prevBal:manAmt;if(!amt||amt<=0)return;onAdd({id:uid(),catId,month:mkey,type:"carryover",label:"上月結餘",amount:amt});setOpen(false);setManAmt(0);};
-  const addSub=()=>{if(!subAmt||!subLbl.trim())return;onAdd({id:uid(),catId,month:mkey,type:"subsidy",label:subLbl.trim(),amount:subAmt});setOpen(false);setSubAmt(0);setSubLbl("");};
-  if(!open)return<button onClick={()=>setOpen(true)} style={{width:"100%",padding:"7px",borderRadius:8,border:"1px dashed "+C.border,background:"none",color:C.muted,cursor:"pointer",fontSize:".78rem"}}>＋ 新增額外收入（結餘轉入 / 補助）</button>;
-  return (
-    <div style={{background:C.surf,borderRadius:10,padding:"12px",marginBottom:4}}>
-      <div style={{display:"flex",gap:7,marginBottom:12}}>
-        {[["carryover","↩️ 上月結餘"],["subsidy","🎁 補助 / 其他"]].map(([m,l])=>(
-          <div key={m} onClick={()=>setMode(m)} style={{flex:1,padding:"7px 6px",borderRadius:8,textAlign:"center",cursor:"pointer",fontSize:".78rem",fontWeight:mode===m?700:400,border:"1.5px solid "+(mode===m?C.acc:C.border),background:mode===m?"rgba(0,212,170,.1)":"none",color:mode===m?C.acc:C.muted,userSelect:"none"}}>{l}</div>
-        ))}
-      </div>
-      {mode==="carryover"?hasCarryover?<div style={{fontSize:".8rem",color:C.muted,textAlign:"center",padding:"6px 0"}}>本月已新增上月結餘</div>:hasHistory?(
-        <div>
-          <div style={{fontSize:".8rem",color:C.muted,marginBottom:10}}>系統計算上月結餘：<span style={{color:C.blue,fontWeight:700}}>${fmt(prevBal)}</span>{prevBal<=0&&<span style={{color:C.exp}}> （上月赤字）</span>}</div>
-          {prevBal>0?<button onClick={addCarry} style={{...gBtn,width:"100%"}}>確認轉入 ${fmt(prevBal)}</button>:<button onClick={()=>setOpen(false)} style={{...wBtn,width:"100%"}}>關閉</button>}
-        </div>
-      ):(
-        <div>
-          <div style={{fontSize:".78rem",color:C.muted,marginBottom:8}}>首次使用，請手動輸入上月結餘：</div>
-          <DigitInput value={manAmt} onChange={setManAmt} small/>
-          <div style={{display:"flex",gap:7,marginTop:10}}><button onClick={addCarry} style={gBtn}>確認</button><button onClick={()=>setOpen(false)} style={wBtn}>取消</button></div>
-        </div>
-      ):(
-        <div>
-          <div style={{marginBottom:8}}><SL>補助名稱</SL><input value={subLbl} onChange={e=>setSubLbl(e.target.value)} placeholder="育兒津貼…" style={{...IS,width:"100%"}}/></div>
-          <div style={{marginBottom:10}}><SL>金額</SL><DigitInput value={subAmt} onChange={setSubAmt} small/></div>
-          <div style={{display:"flex",gap:7}}><button onClick={addSub} style={gBtn}>新增</button><button onClick={()=>setOpen(false)} style={wBtn}>取消</button></div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── 第三頁：記帳 ─────────────────────────────────────────
-function PageLedger({mkey,categories,allocs,expenses,sv}){
-  const [selCat,setSelCat]=useState(null);
-  const [selType,setSelType]=useState(null);
-  const [amount,setAmount]=useState(0);
-  const [note,setNote]=useState("");
-  const monthExps=[...expenses.filter(e=>e.date.startsWith(mkey))].reverse();
-  const valid=selCat&&selType&&amount>0;
-  const submit=()=>{
-    if(!valid)return;
-    const cat=categories.find(c=>c.id===selCat)||{name:"",icon:"📦"};
-    const typ=EXP_TYPES.find(t=>t.l===selType)||{i:"📦"};
-    sv.exps([...expenses,{id:uid(),catId:selCat,catName:cat.name,catIcon:cat.icon,subCat:selType,subIcon:typ.i,amount,note,date:now_()}]);
-    setAmount(0);setNote("");setSelCat(null);setSelType(null);
+// ════ 第二頁：分配 ══════════════════════════════════════
+function page1(){
+  const mk=mkey(),pm=pmkey(),mt=monthTotal();
+  const getAlloc=catId=>(S.allocs.find(a=>a.catId===catId&&a.month===mk)||{amount:0}).amount;
+  const totalAlloc=S.categories.reduce((s,c)=>s+getAlloc(c.id),0);
+  const diff=mt-totalAlloc;
+  const mSpent=catId=>S.expenses.filter(e=>e.catId===catId&&e.date.startsWith(mk)).reduce((s,e)=>s+e.amount,0);
+  const saveAlloc=(catId,v)=>{
+    const base=S.allocs.filter(a=>!(a.catId===catId&&a.month===mk));
+    const news=v>0?[{id:uid(),catId,amount:v,month:mk}]:[];
+    save('allocs',[...base,...news]);render();
   };
-  const chartData=categories.map(cat=>({
-    name:cat.name, icon:cat.icon,
-    alloc:(allocs.find(a=>a.catId===cat.id&&a.month===mkey)||{amount:0}).amount,
-    spent:expenses.filter(e=>e.catId===cat.id&&e.date.startsWith(mkey)).reduce((s,e)=>s+e.amount,0),
-  })).filter(d=>d.alloc>0||d.spent>0);
-  return (<>
-    <Card title="新增支出">
-      <SL>支出分類</SL>
-      <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:14}}>
-        {categories.map(cat=>(
-          <div key={cat.id} onClick={()=>setSelCat(cat.id)} style={{display:"flex",alignItems:"center",gap:4,padding:"6px 14px",borderRadius:20,cursor:"pointer",userSelect:"none",background:selCat===cat.id?"rgba(0,212,170,.12)":C.surf,border:"1.5px solid "+(selCat===cat.id?C.acc:C.border),color:selCat===cat.id?C.acc:C.muted,fontSize:".83rem"}}>
-            {cat.icon} {cat.name}
-          </div>
-        ))}
-      </div>
-      <SL>消費項目</SL>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7,marginBottom:14}}>
-        {EXP_TYPES.map(({i,l})=>(
-          <div key={l} onClick={()=>setSelType(l)} style={{padding:"8px 4px 7px",borderRadius:10,textAlign:"center",cursor:"pointer",userSelect:"none",background:selType===l?"rgba(0,212,170,.1)":C.card,border:"1.5px solid "+(selType===l?C.acc:C.border)}}>
-            <div style={{fontSize:"1.2rem",marginBottom:2}}>{i}</div>
-            <div style={{fontSize:".63rem",color:selType===l?C.acc:C.muted}}>{l}</div>
-          </div>
-        ))}
-      </div>
-      <SL>金額</SL>
-      <DigitInput value={amount} onChange={setAmount}/>
-      <input placeholder="備註（可留空）" value={note} onChange={e=>setNote(e.target.value)} style={{...IS,width:"100%",marginTop:10,marginBottom:12}}/>
-      <button onClick={submit} style={{width:"100%",padding:12,borderRadius:10,border:"none",background:valid?"linear-gradient(135deg,"+C.acc+",#00b894)":C.border,color:valid?"#0d1f2d":C.muted,fontSize:".92rem",fontWeight:700,cursor:valid?"pointer":"default"}}>
-        {valid?"記錄支出 ✓":"請選分類、項目並填入金額"}
-      </button>
-    </Card>
-    {monthExps.length>0&&(
-      <Card title="本月支出明細">
-        {monthExps.map((e,i)=>(
-          <div key={e.id} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 0",borderBottom:i===monthExps.length-1?"none":"1px solid "+C.border}}>
-            <div style={{width:34,height:34,borderRadius:"50%",background:C.surf,border:"1px solid "+C.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem",flexShrink:0}}>{e.subIcon}</div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{display:"flex",justifyContent:"space-between",gap:4}}>
-                <span style={{fontSize:".85rem",fontWeight:500}}>{e.catIcon}{e.catName} › {e.subCat}</span>
-                <span style={{fontFamily:"monospace",fontWeight:700,color:C.exp,flexShrink:0}}>-${fmt(e.amount)}</span>
-              </div>
-              <div style={{fontSize:".69rem",color:C.muted,marginTop:3}}>{e.date.slice(5,16)}{e.note?" · "+e.note:""}</div>
-            </div>
-            <DelBtn onDel={()=>sv.exps(expenses.filter(ex=>ex.id!==e.id))}/>
-          </div>
-        ))}
-      </Card>
-    )}
-    <Card title="本月分配 vs 支出">
-      {chartData.length>0?(
-        <CSSBarChart data={chartData}/>
-      ):<div style={{textAlign:"center",padding:"20px 0",color:C.muted,fontSize:".85rem"}}>本月尚無資料</div>}
-    </Card>
-  </>);
+
+  const wrap=div({},[]);
+
+  // 總覽
+  const ov=card(null,[g3(mbox('本月公積金',mt,'c-i'),mbox('已分配',totalAlloc,'c-b'),mbox(diff>=0?'未分配':'超額',Math.abs(diff),diff===0?'c-m':diff>0?'c-g':'c-e'))]);
+  if(diff!==0)ov.appendChild(div({style:{fontSize:'.75rem',color:diff>0?'#ffd166':'#f87171',textAlign:'center',marginTop:'8px'}},[diff>0?'⚠️ 還有 $'+fmt(diff)+' 尚未分配':'⚠️ 超額 $'+fmt(-diff)]));
+  wrap.appendChild(ov);
+
+  // 各類別
+  S.categories.forEach(cat=>{
+    const thisA=getAlloc(cat.id),thisS=mSpent(cat.id);
+    const suggest=(cat.defPP||0)*S.members.length;
+    const catEx=S.extras.filter(x=>x.catId===cat.id&&x.month===mk);
+    const exSum=catEx.reduce((s,x)=>s+x.amount,0);
+    const prevBal=catBalance(cat.id,pm);
+    const hasHistory=S.allocs.some(a=>a.catId===cat.id&&a.month===pm)||S.expenses.some(e=>e.catId===cat.id&&e.date.startsWith(pm));
+    const hasCarryover=!!S.extras.find(x=>x.catId===cat.id&&x.month===mk&&x.type==='carryover');
+    const c=card(null,[]);
+
+    // 標題
+    const th=div({className:'row',style:{marginBottom:'10px'}},[
+      span({style:{fontSize:'1.3rem'}},[cat.icon]),
+      div({style:{flex:1}},[
+        div({style:{fontWeight:700,fontSize:'.95rem'}},[cat.name]),
+        cat.defPP>0?div({style:{fontSize:'.67rem',color:'#6a8fa8',marginTop:'1px'}},['每人 $'+fmt(cat.defPP)+' × '+S.members.length+' 人 = \$'+fmt(suggest)]):null
+      ].filter(Boolean)),
+      delBtn('cat-'+cat.id,()=>{save('categories',S.categories.filter(cc=>cc.id!==cat.id));render();})
+    ]);
+    c.appendChild(th);
+
+    // 分配輸入
+    const aRow=div({style:{display:'flex',alignItems:'flex-end',gap:'10px',marginBottom:'14px',flexWrap:'wrap'}},[]);
+    const aDiv=div({},[sl('本月分配'),digitInput(thisA,v=>saveAlloc(cat.id,v),true)]);
+    aRow.appendChild(aDiv);
+    if(suggest>0&&thisA!==suggest){
+      aRow.appendChild(btn({style:{padding:'6px 12px',borderRadius:'8px',border:'1px solid #ffd166',background:'rgba(255,209,102,.08)',color:'#ffd166',cursor:'pointer',fontSize:'.76rem',marginBottom:'2px'},onClick:()=>saveAlloc(cat.id,suggest)},['套用 $'+fmt(suggest)]));
+    }
+    c.appendChild(aRow);
+
+    // 額外收入列表
+    if(catEx.length){
+      const exList=div({style:{marginBottom:'10px'}},[]);
+      catEx.forEach(ex=>{
+        const r=div({style:{display:'flex',alignItems:'center',gap:'8px',padding:'6px 10px',background:'#152536',borderRadius:'8px',marginBottom:'5px'}},[]);
+        r.appendChild(span({style:{fontSize:'.78rem',color:ex.type==='carryover'?'#4fc3f7':'#2dd4bf',flex:1}},[ex.type==='carryover'?'↩️ 上月結餘':'🎁 '+ex.label]));
+        r.appendChild(span({style:{fontFamily:'monospace',fontSize:'.82rem',fontWeight:600,color:ex.type==='carryover'?'#4fc3f7':'#2dd4bf'}},['+ $'+fmt(ex.amount)]));
+        r.appendChild(delBtn('extra-'+ex.id,()=>{save('extras',S.extras.filter(x=>x.id!==ex.id));render();}));
+        exList.appendChild(r);
+      });
+      c.appendChild(exList);
+    }
+
+    // 額外收入新增
+    c.appendChild(extraRow(cat.id,mk,prevBal,hasHistory,hasCarryover));
+
+    // 小結
+    c.appendChild(div({style:{marginTop:'12px'}},[g3(mbox('本月收入',thisA+exSum,'c-i'),mbox('本月支出',thisS,'c-e'),mbox('本月結餘',thisA+exSum-thisS,thisA+exSum-thisS>=0?'c-i':'c-e'))]));
+    wrap.appendChild(c);
+  });
+
+  // 新增分類
+  if(S.allocAddOpen){
+    const ac=card(null,[sl('新分類名稱')]);
+    const row=div({className:'row'},[]);
+    const ni=inp({type:'text',value:S.allocNewName,placeholder:'例：教育、保險…'});
+    ni.addEventListener('input',e=>{S.allocNewName=e.target.value;});
+    ni.addEventListener('keydown',e=>{if(e.key==='Enter')doAddCat();});
+    row.appendChild(ni);
+    row.appendChild(btn({className:'btn-g',onClick:doAddCat},['新增']));
+    row.appendChild(btn({className:'btn-w',onClick:()=>{S.allocAddOpen=false;render();}},['取消']));
+    ac.appendChild(row);
+    wrap.appendChild(ac);
+    setTimeout(()=>ni.focus(),50);
+  } else {
+    wrap.appendChild(btn({style:{width:'100%',padding:'12px',borderRadius:'11px',border:'1.5px dashed #243d55',background:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.88rem'},onClick:()=>{S.allocAddOpen=true;S.allocNewName='';render();}},['＋ 新增分類']));
+  }
+  return wrap;
+}
+function doAddCat(){
+  const nm=S.allocNewName.trim();if(!nm)return;
+  save('categories',[...S.categories,{id:uid(),name:nm,icon:CAT_ICONS[S.categories.length%CAT_ICONS.length],defPP:0}]);
+  S.allocAddOpen=false;render();
+}
+function extraRow(catId,mk,prevBal,hasHistory,hasCarryover){
+  const key='ex-'+catId;
+  if(!S.extraOpen[key]){
+    return btn({style:{width:'100%',padding:'7px',borderRadius:'8px',border:'1px dashed #243d55',background:'none',color:'#6a8fa8',cursor:'pointer',fontSize:'.78rem'},onClick:()=>{S.extraOpen[key]=true;S.extraMode[key]='carryover';render();}},['＋ 新增額外收入（結餘轉入 / 補助）']);
+  }
+  const mode=S.extraMode[key]||'carryover';
+  const d=div({style:{background:'#152536',borderRadius:'10px',padding:'12px',marginBottom:'4px'}},[]);
+  // 模式切換
+  const modeRow=div({className:'row',style:{marginBottom:'12px'}},[]);
+  [['carryover','↩️ 上月結餘'],['subsidy','🎁 補助/其他']].forEach(([m,l])=>{
+    modeRow.appendChild(btn({style:{flex:1,padding:'7px 6px',borderRadius:'8px',textAlign:'center',cursor:'pointer',fontSize:'.78rem',fontWeight:mode===m?700:400,border:'1.5px solid '+(mode===m?'#00d4aa':'#243d55'),background:mode===m?'rgba(0,212,170,.1)':'none',color:mode===m?'#00d4aa':'#6a8fa8',userSelect:'none'},onClick:()=>{S.extraMode[key]=m;render();}},[ l ]));
+  });
+  d.appendChild(modeRow);
+
+  if(mode==='carryover'){
+    if(hasCarryover){
+      d.appendChild(div({style:{fontSize:'.8rem',color:'#6a8fa8',textAlign:'center',padding:'6px 0'}},['本月已新增上月結餘']));
+    } else if(hasHistory){
+      d.appendChild(div({style:{fontSize:'.8rem',color:'#6a8fa8',marginBottom:'10px'}},['系統計算上月結餘：\$'+fmt(prevBal)+(prevBal<=0?' （赤字）':'')]));
+      if(prevBal>0){
+        d.appendChild(btn({className:'btn-g',style:{width:'100%'},onClick:()=>{
+          save('extras',[...S.extras,{id:uid(),catId,month:mk,type:'carryover',label:'上月結餘',amount:prevBal}]);
+          delete S.extraOpen[key];render();
+        }},['確認轉入 $'+fmt(prevBal)]));
+      } else {
+        d.appendChild(btn({className:'btn-w',style:{width:'100%'},onClick:()=>{delete S.extraOpen[key];render();}},['關閉']));
+      }
+    } else {
+      d.appendChild(div({style:{fontSize:'.78rem',color:'#6a8fa8',marginBottom:'8px'}},['首次使用，請手動輸入上月結餘：']));
+      const manKey='manAmt-'+catId;
+      d.appendChild(digitInput(S[manKey]||0,v=>{S[manKey]=v;render();},true));
+      const r=div({className:'row',style:{marginTop:'10px'}},[]);
+      r.appendChild(btn({className:'btn-g',onClick:()=>{
+        const a=S[manKey]||0;if(!a||a<=0)return;
+        save('extras',[...S.extras,{id:uid(),catId,month:mk,type:'carryover',label:'上月結餘',amount:a}]);
+        delete S.extraOpen[key];delete S[manKey];render();
+      }},['確認']));
+      r.appendChild(btn({className:'btn-w',onClick:()=>{delete S.extraOpen[key];render();}},['取消']));
+      d.appendChild(r);
+    }
+  } else {
+    const lblKey='subLbl-'+catId,amtKey='subAmt-'+catId;
+    d.appendChild(div({},[sl('補助名稱')]));
+    const ni=inp({type:'text',value:S[lblKey]||'',placeholder:'育兒津貼…'});
+    ni.addEventListener('input',e=>{S[lblKey]=e.target.value;});
+    d.appendChild(ni);
+    d.appendChild(div({style:{marginTop:'8px',marginBottom:'10px'}},[sl('金額'),digitInput(S[amtKey]||0,v=>{S[amtKey]=v;render();},true)]));
+    const r=div({className:'row'},[]);
+    r.appendChild(btn({className:'btn-g',onClick:()=>{
+      const a=S[amtKey]||0,l=(S[lblKey]||'').trim();if(!a||!l)return;
+      save('extras',[...S.extras,{id:uid(),catId,month:mk,type:'subsidy',label:l,amount:a}]);
+      delete S.extraOpen[key];delete S[lblKey];delete S[amtKey];render();
+    }},['新增']));
+    r.appendChild(btn({className:'btn-w',onClick:()=>{delete S.extraOpen[key];render();}},['取消']));
+    d.appendChild(r);
+  }
+  return d;
 }
 
-// ── 第四頁：總計 ─────────────────────────────────────────
-function PageSummary({categories,allocs,expenses}){
-  const rows=categories.map(cat=>{
-    const ta=allocs.filter(a=>a.catId===cat.id).reduce((s,a)=>s+a.amount,0);
-    const ts=expenses.filter(e=>e.catId===cat.id).reduce((s,e)=>s+e.amount,0);
+// ════ 第三頁：記帳 ══════════════════════════════════════
+function page2(){
+  const mk=mkey();
+  const monthExps=[...S.expenses.filter(e=>e.date.startsWith(mk))].reverse();
+  const valid=S.ledgerCat&&S.ledgerType&&S.ledgerAmt>0;
+  const chartData=S.categories.map(cat=>({
+    name:cat.name,icon:cat.icon,
+    alloc:(S.allocs.find(a=>a.catId===cat.id&&a.month===mk)||{amount:0}).amount,
+    spent:S.expenses.filter(e=>e.catId===cat.id&&e.date.startsWith(mk)).reduce((s,e)=>s+e.amount,0),
+  })).filter(d=>d.alloc>0||d.spent>0);
+
+  const wrap=div({},[]);
+  const fc=card('新增支出',[]);
+  fc.appendChild(div({},[sl('支出分類')]));
+
+  const chipWrap=div({style:{display:'flex',flexWrap:'wrap',gap:'7px',marginBottom:'14px'}},[]);
+  S.categories.forEach(cat=>{
+    const c=div({className:'chip'+(S.ledgerCat===cat.id?' on':''),onClick:()=>{S.ledgerCat=cat.id;render();}},[cat.icon,' ',cat.name]);
+    chipWrap.appendChild(c);
+  });
+  fc.appendChild(chipWrap);
+  fc.appendChild(div({},[sl('消費項目')]));
+  fc.appendChild(catGrid(EXP_TYPES,S.ledgerType,v=>{S.ledgerType=v;render();}));
+  fc.appendChild(div({},[sl('金額')]));
+  fc.appendChild(digitInput(S.ledgerAmt,v=>{S.ledgerAmt=v;render();}));
+  const ni=inp({type:'text',value:S.ledgerNote,placeholder:'備註（可留空）',style:{marginTop:'10px',marginBottom:'12px'}});
+  ni.addEventListener('input',e=>{S.ledgerNote=e.target.value;});
+  fc.appendChild(ni);
+  fc.appendChild(btn({className:'btn'+(valid?'':' btn-dis'),onClick:()=>{
+    if(!valid)return;
+    const cat=S.categories.find(c=>c.id===S.ledgerCat)||{name:'',icon:'📦'};
+    const typ=EXP_TYPES.find(t=>t.l===S.ledgerType)||{i:'📦'};
+    save('expenses',[...S.expenses,{id:uid(),catId:S.ledgerCat,catName:cat.name,catIcon:cat.icon,subCat:S.ledgerType,subIcon:typ.i,amount:S.ledgerAmt,note:S.ledgerNote,date:now_()}]);
+    S.ledgerCat=null;S.ledgerType=null;S.ledgerAmt=0;S.ledgerNote='';render();
+  }},[valid?'記錄支出 ✓':'請選分類、項目並填入金額']));
+  wrap.appendChild(fc);
+
+  if(monthExps.length){
+    const mc=card('本月支出明細',[]);
+    monthExps.forEach((e,i)=>{
+      const r=div({className:'rec'},[]);
+      r.appendChild(div({style:{width:'34px',height:'34px',borderRadius:'50%',background:'#152536',border:'1px solid #243d55',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1rem',flexShrink:0}},[e.subIcon]));
+      const b=div({style:{flex:1,minWidth:0}},[]);
+      const t=div({className:'row-sb'},[span({style:{fontSize:'.85rem',fontWeight:500}},[e.catIcon+e.catName+' › '+e.subCat]),span({style:{fontFamily:'monospace',fontWeight:700,color:'#f87171',flexShrink:0}},['−$'+fmt(e.amount)])]);
+      b.appendChild(t);
+      b.appendChild(div({style:{fontSize:'.69rem',color:'#6a8fa8',marginTop:'3px'}},[e.date.slice(5,16)+(e.note?' · '+e.note:'')]));
+      r.appendChild(b);
+      r.appendChild(delBtn('exp-'+e.id,()=>{save('expenses',S.expenses.filter(ex=>ex.id!==e.id));render();}));
+      mc.appendChild(r);
+    });
+    wrap.appendChild(mc);
+  }
+
+  wrap.appendChild(card('本月分配 vs 支出',[cssBarChart(chartData)]));
+  return wrap;
+}
+
+// ════ 第四頁：總計 ══════════════════════════════════════
+function page3(){
+  const rows=S.categories.map(cat=>{
+    const ta=S.allocs.filter(a=>a.catId===cat.id).reduce((s,a)=>s+a.amount,0);
+    const ts=S.expenses.filter(e=>e.catId===cat.id).reduce((s,e)=>s+e.amount,0);
     return {cat,ta,ts,bal:ta-ts};
   });
   const gta=rows.reduce((s,r)=>s+r.ta,0),gts=rows.reduce((s,r)=>s+r.ts,0);
-  return (
-    <Card title="各類別累計至今">
-      {rows.map(({cat,ta,ts,bal})=>(
-        <div key={cat.id} style={{padding:"13px 0",borderBottom:"1px solid "+C.border}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-            <span style={{fontSize:"1.2rem"}}>{cat.icon}</span>
-            <span style={{fontWeight:700,fontSize:".93rem",flex:1}}>{cat.name}</span>
-            <span style={{fontFamily:"monospace",fontWeight:700,color:bal>=0?C.inc:C.exp}}>{bal>=0?"":"-"}${fmt(Math.abs(bal))}</span>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:ta>0?8:0}}>
-            <MiniBox label="累計分配" value={ta} color={C.blue}/><MiniBox label="累計支出" value={ts} color={C.exp}/><MiniBox label="結餘" value={bal}/>
-          </div>
-          {ta>0&&<div style={{height:6,background:C.border,borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:Math.min(ts/ta*100,100).toFixed(0)+"%",background:ts>ta?C.exp:C.acc,borderRadius:3}}/></div>}
-        </div>
-      ))}
-      <div style={{paddingTop:14}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <span style={{fontWeight:700}}>全部合計</span>
-          <span style={{fontFamily:"monospace",fontWeight:700,fontSize:"1rem",color:gta-gts>=0?C.inc:C.exp}}>{gta-gts>=0?"":"-"}${fmt(Math.abs(gta-gts))}</span>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-          <MiniBox label="總分配" value={gta} color={C.blue}/><MiniBox label="總支出" value={gts} color={C.exp}/><MiniBox label="總結餘" value={gta-gts}/>
-        </div>
-      </div>
-    </Card>
-  );
+  const c=card('各類別累計至今',[]);
+  rows.forEach(({cat,ta,ts,bal})=>{
+    const r=div({style:{padding:'13px 0',borderBottom:'1px solid #243d55'}},[]);
+    const th=div({className:'row-sb',style:{marginBottom:'10px'}},[span({style:{display:'flex',alignItems:'center',gap:'8px'}},[span({style:{fontSize:'1.2rem'}},[cat.icon]),span({style:{fontWeight:700,fontSize:'.93rem'}},[cat.name])]),span({style:{fontFamily:'monospace',fontWeight:700,color:bal>=0?'#2dd4bf':'#f87171'}},[(bal>=0?'':'−')+'$'+fmt(Math.abs(bal))])]);
+    r.appendChild(th);
+    r.appendChild(g3(mbox('累計分配',ta,'c-b'),mbox('累計支出',ts,'c-e'),mbox('結餘',bal,bal>=0?'c-i':'c-e')));
+    if(ta>0){
+      const p=div({style:{height:'6px',background:'#243d55',borderRadius:'3px',overflow:'hidden',marginTop:'8px'}},[div({style:{height:'100%',width:Math.min(ts/ta*100,100).toFixed(0)+'%',background:ts>ta?'#f87171':'#00d4aa',borderRadius:'3px'}},[])  ]);
+      r.appendChild(p);
+    }
+    c.appendChild(r);
+  });
+  const foot=div({style:{paddingTop:'14px'}},[]);
+  foot.appendChild(div({className:'row-sb',style:{marginBottom:'10px'}},[span({style:{fontWeight:700}},['全部合計']),span({style:{fontFamily:'monospace',fontWeight:700,fontSize:'1rem',color:gta-gts>=0?'#2dd4bf':'#f87171'}},[(gta-gts>=0?'':'−')+'$'+fmt(Math.abs(gta-gts))])]));
+  foot.appendChild(g3(mbox('總分配',gta,'c-b'),mbox('總支出',gts,'c-e'),mbox('總結餘',gta-gts,gta-gts>=0?'c-i':'c-e')));
+  c.appendChild(foot);
+  return c;
 }
 
-// ── 第五頁：個人 ─────────────────────────────────────────
-function PagePersonal({mkey,personal,contribs,members,sv}){
-  const [selfId,setSelfId]=useState(()=>LS.get("fm_selfId",String((members[0]||{id:1}).id)));
-  const [ptype,setPtype]=useState("income");
-  const [selCat,setSelCat]=useState(null);
-  const [amount,setAmount]=useState(0);
-  const [note,setNote]=useState("");
-  const cats=ptype==="income"?P_INC:P_EXP;
-  const monthRecs=[...personal.filter(r=>r.month===mkey)].reverse();
-  const myContribs=contribs.filter(c=>c.month===mkey&&c.memberId===selfId);
-  const contribTotal=myContribs.reduce((s,c)=>s+c.amount,0);
-  const inc=personal.filter(r=>r.month===mkey&&r.type==="income").reduce((s,r)=>s+r.amount,0);
-  const exp=personal.filter(r=>r.month===mkey&&r.type==="expense").reduce((s,r)=>s+r.amount,0);
-  const bal=inc-exp-contribTotal;
-  const valid=selCat&&amount>0;
-  const submit=()=>{if(!valid)return;const catObj=cats.find(c=>c.l===selCat)||{i:"📦"};sv.pers([...personal,{id:uid(),month:mkey,type:ptype,category:selCat,catIcon:catObj.i,amount,note,date:now_()}]);setAmount(0);setNote("");setSelCat(null);};
-  const changeSelf=id=>{setSelfId(id);LS.set("fm_selfId",id);};
-  return (<>
-    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,background:C.card,border:"1px solid "+C.border,borderRadius:12,padding:"10px 14px"}}>
-      <span style={{fontSize:".75rem",color:C.muted,flexShrink:0}}>我是：</span>
-      <div style={{display:"flex",gap:8,flex:1}}>
-        {members.map(m=>{const on=selfId===String(m.id);return(
-          <div key={m.id} onClick={()=>changeSelf(String(m.id))} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",borderRadius:20,cursor:"pointer",userSelect:"none",border:"2px solid "+(on?m.color:C.border),color:on?"#fff":C.muted,background:on?m.color+"33":"none",fontSize:".85rem",fontWeight:on?700:400}}>
-            <div style={{width:20,height:20,borderRadius:"50%",background:m.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:".65rem",fontWeight:700,color:"#fff"}}>{m.name[0]}</div>
-            {m.name}
-          </div>
-        );})}
-      </div>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
-      <MiniBox label="收入" value={inc} color={C.inc}/><MiniBox label="支出" value={exp+contribTotal} color={C.exp}/><MiniBox label="結餘" value={bal}/>
-    </div>
-    <Card title="新增收支">
-      <div style={{display:"flex",gap:8,marginBottom:12}}>
-        {[["income","＋ 收入",C.inc,"rgba(45,212,191,.12)"],["expense","－ 支出",C.exp,"rgba(248,113,113,.12)"]].map(([t,l,col,bg])=>(
-          <div key={t} onClick={()=>{setPtype(t);setSelCat(null);}} style={{flex:1,padding:"8px 4px",borderRadius:9,textAlign:"center",cursor:"pointer",userSelect:"none",border:"1px solid "+(ptype===t?col:C.border),background:ptype===t?bg:C.surf,color:ptype===t?col:C.muted,fontSize:".87rem",fontWeight:600}}>{l}</div>
-        ))}
-      </div>
-      <SL>類別</SL>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7,marginBottom:12}}>
-        {cats.map(({i,l})=>(
-          <div key={l} onClick={()=>setSelCat(l)} style={{padding:"8px 4px 7px",borderRadius:10,textAlign:"center",cursor:"pointer",userSelect:"none",background:selCat===l?"rgba(0,212,170,.1)":C.card,border:"1.5px solid "+(selCat===l?C.acc:C.border)}}>
-            <div style={{fontSize:"1.2rem",marginBottom:2}}>{i}</div>
-            <div style={{fontSize:".63rem",color:selCat===l?C.acc:C.muted}}>{l}</div>
-          </div>
-        ))}
-      </div>
-      <SL>金額</SL>
-      <DigitInput value={amount} onChange={setAmount} small/>
-      <input placeholder="備註（可留空）" value={note} onChange={e=>setNote(e.target.value)} style={{...IS,width:"100%",marginTop:10,marginBottom:12}}/>
-      <button onClick={submit} style={{width:"100%",padding:12,borderRadius:10,border:"none",background:valid?"linear-gradient(135deg,"+C.acc+",#00b894)":C.border,color:valid?"#0d1f2d":C.muted,fontSize:".92rem",fontWeight:700,cursor:valid?"pointer":"default"}}>
-        {valid?"記帳 ✓":"請選類別並填入金額"}
-      </button>
-    </Card>
-    {monthRecs.length>0&&(
-      <Card title="本月明細">
-        {monthRecs.map((r,i)=>(
-          <div key={r.id} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 0",borderBottom:i===monthRecs.length-1?"none":"1px solid "+C.border}}>
-            <div style={{width:34,height:34,borderRadius:"50%",background:r.type==="income"?C.inc+"33":C.exp+"33",border:"1.5px solid "+(r.type==="income"?C.inc:C.exp),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem",flexShrink:0}}>{r.catIcon}</div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontSize:".87rem",fontWeight:500}}>{r.category}</span>
-                <span style={{fontFamily:"monospace",fontWeight:700,color:r.type==="income"?C.inc:C.exp}}>{r.type==="income"?"+":"-"}${fmt(r.amount)}</span>
-              </div>
-              <div style={{fontSize:".69rem",color:C.muted,marginTop:2}}>{r.date.slice(5,16)}{r.note?" · "+r.note:""}</div>
-            </div>
-            <DelBtn onDel={()=>sv.pers(personal.filter(x=>x.id!==r.id))}/>
-          </div>
-        ))}
-      </Card>
-    )}
-    {myContribs.length>0&&(
-      <Card title="公積金繳納（自動扣除）">
-        {myContribs.map((c,i)=>(
-          <div key={c.id} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 0",borderBottom:i===myContribs.length-1?"none":"1px solid "+C.border}}>
-            <div style={{width:34,height:34,borderRadius:"50%",background:"rgba(255,209,102,.15)",border:"1.5px solid "+C.gold,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem",flexShrink:0}}>🏦</div>
-            <div style={{flex:1}}>
-              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:".87rem",fontWeight:500}}>繳納公積金</span><span style={{fontFamily:"monospace",fontWeight:700,color:C.exp}}>-${fmt(c.amount)}</span></div>
-              <div style={{fontSize:".69rem",color:C.muted,marginTop:2}}>{c.paidAt.slice(5,16)} · 自動帶入</div>
-            </div>
-          </div>
-        ))}
-        <div style={{display:"flex",justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid "+C.border,marginTop:4}}>
-          <span style={{fontSize:".75rem",color:C.muted,marginRight:8}}>本月繳納小計</span>
-          <span style={{fontFamily:"monospace",fontWeight:700,color:C.exp}}>-${fmt(contribTotal)}</span>
-        </div>
-      </Card>
-    )}
-    {(inc>0||exp>0||contribTotal>0)&&(
-      <div style={{background:C.card,border:"1px solid "+C.border,borderRadius:13,padding:16}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
-          <MiniBox label="個人支出" value={exp} color={C.exp}/><MiniBox label="公積金" value={contribTotal} color={C.gold}/><MiniBox label="合計支出" value={exp+contribTotal} color={C.exp}/>
-        </div>
-        <div style={{textAlign:"center",paddingTop:10,borderTop:"1px solid "+C.border}}>
-          <div style={{fontSize:".72rem",color:C.muted,marginBottom:6}}>本月結餘</div>
-          <div style={{fontFamily:"monospace",fontSize:"2rem",fontWeight:700,color:bal>=0?C.inc:C.exp}}>{bal>=0?"":"-"}${fmt(Math.abs(bal))}</div>
-        </div>
-      </div>
-    )}
-  </>);
+// ════ 第五頁：個人 ══════════════════════════════════════
+function page4(){
+  const mk=mkey();
+  const cats=S.persType==='income'?P_INC:P_EXP;
+  const monthRecs=[...S.personal.filter(r=>r.month===mk)].reverse();
+  const myC=S.contribs.filter(c=>c.month===mk&&c.memberId===S.selfId);
+  const cTotal=myC.reduce((s,c)=>s+c.amount,0);
+  const inc=S.personal.filter(r=>r.month===mk&&r.type==='income').reduce((s,r)=>s+r.amount,0);
+  const exp=S.personal.filter(r=>r.month===mk&&r.type==='expense').reduce((s,r)=>s+r.amount,0);
+  const bal=inc-exp-cTotal;
+  const valid=S.persCat&&S.persAmt>0;
+  const wrap=div({},[]);
+
+  // 我是誰
+  const who=div({style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'12px',background:'#1a2f42',border:'1px solid #243d55',borderRadius:'12px',padding:'10px 14px'}},[]);
+  who.appendChild(span({style:{fontSize:'.75rem',color:'#6a8fa8',flexShrink:0}},['我是：']));
+  const memR=div({style:{display:'flex',gap:'8px',flex:1}},[]);
+  S.members.forEach(m=>{
+    const on=S.selfId===String(m.id);
+    memR.appendChild(btn({style:{display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',borderRadius:'20px',cursor:'pointer',userSelect:'none',border:'2px solid '+(on?m.color:'#243d55'),color:on?'#fff':'#6a8fa8',background:on?m.color+'33':'none',fontSize:'.85rem',fontWeight:on?700:400},onClick:()=>{S.selfId=String(m.id);LS.set('fm_selfId',S.selfId);render();}},[
+      div({style:{width:'20px',height:'20px',borderRadius:'50%',background:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.65rem',fontWeight:700,color:'#fff'}},[m.name[0]]),
+      m.name
+    ]));
+  });
+  who.appendChild(memR);
+  wrap.appendChild(who);
+
+  wrap.appendChild(g3(mbox('收入',inc,'c-i'),mbox('支出',exp+cTotal,'c-e'),mbox('結餘',bal,bal>=0?'c-i':'c-e')));
+  wrap.appendChild(div({style:{marginBottom:'12px'}},[null]));
+
+  // 新增
+  const fc=card('新增收支',[]);
+  fc.appendChild(typeToggle(S.persType,()=>{S.persType='income';S.persCat=null;render();},()=>{S.persType='expense';S.persCat=null;render();}));
+  fc.appendChild(div({},[sl('類別')]));
+  fc.appendChild(catGrid(cats,S.persCat,v=>{S.persCat=v;render();}));
+  fc.appendChild(div({},[sl('金額')]));
+  fc.appendChild(digitInput(S.persAmt,v=>{S.persAmt=v;render();},true));
+  const ni=inp({type:'text',value:S.persNote,placeholder:'備註（可留空）',style:{marginTop:'10px',marginBottom:'12px'}});
+  ni.addEventListener('input',e=>{S.persNote=e.target.value;});
+  fc.appendChild(ni);
+  fc.appendChild(btn({className:'btn'+(valid?'':' btn-dis'),onClick:()=>{
+    if(!valid)return;
+    const catObj=cats.find(c=>c.l===S.persCat)||{i:'📦'};
+    save('personal',[...S.personal,{id:uid(),month:mk,type:S.persType,category:S.persCat,catIcon:catObj.i,amount:S.persAmt,note:S.persNote,date:now_()}]);
+    S.persAmt=0;S.persNote='';S.persCat=null;render();
+  }},[valid?'記帳 ✓':'請選類別並填入金額']));
+  wrap.appendChild(fc);
+
+  // 本月明細
+  if(monthRecs.length){
+    const mc=card('本月明細',[]);
+    monthRecs.forEach(r=>{
+      const row=div({className:'rec'},[]);
+      row.appendChild(div({style:{width:'34px',height:'34px',borderRadius:'50%',background:r.type==='income'?'rgba(45,212,191,.2)':'rgba(248,113,113,.2)',border:'1.5px solid '+(r.type==='income'?'#2dd4bf':'#f87171'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1rem',flexShrink:0}},[r.catIcon]));
+      const b=div({style:{flex:1,minWidth:0}},[]);
+      b.appendChild(div({className:'row-sb'},[span({style:{fontSize:'.87rem',fontWeight:500}},[r.category]),span({style:{fontFamily:'monospace',fontWeight:700,color:r.type==='income'?'#2dd4bf':'#f87171'}},[(r.type==='income'?'+':'−')+'$'+fmt(r.amount)])]));
+      b.appendChild(div({style:{fontSize:'.69rem',color:'#6a8fa8',marginTop:'2px'}},[r.date.slice(5,16)+(r.note?' · '+r.note:'')]));
+      row.appendChild(b);
+      row.appendChild(delBtn('pers-'+r.id,()=>{save('personal',S.personal.filter(x=>x.id!==r.id));render();}));
+      mc.appendChild(row);
+    });
+    wrap.appendChild(mc);
+  }
+
+  // 公積金自動扣除
+  if(myC.length){
+    const cc=card('公積金繳納（自動扣除）',[]);
+    myC.forEach((c,i)=>{
+      const r=div({className:'rec',style:{borderBottom:i===myC.length-1?'none':'1px solid #243d55'}},[]);
+      r.appendChild(div({style:{width:'34px',height:'34px',borderRadius:'50%',background:'rgba(255,209,102,.15)',border:'1.5px solid #ffd166',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1rem',flexShrink:0}},['🏦']));
+      const b=div({style:{flex:1}},[]);
+      b.appendChild(div({className:'row-sb'},[span({style:{fontSize:'.87rem',fontWeight:500}},['繳納公積金']),span({style:{fontFamily:'monospace',fontWeight:700,color:'#f87171'}},['−$'+fmt(c.amount)])]));
+      b.appendChild(div({style:{fontSize:'.69rem',color:'#6a8fa8',marginTop:'2px'}},[c.paidAt.slice(5,16)+' · 自動帶入']));
+      r.appendChild(b);
+      cc.appendChild(r);
+    });
+    cc.appendChild(div({style:{display:'flex',justifyContent:'flex-end',paddingTop:'8px',borderTop:'1px solid #243d55',marginTop:'4px'}},[span({style:{fontSize:'.75rem',color:'#6a8fa8',marginRight:'8px'}},['本月繳納小計']),span({style:{fontFamily:'monospace',fontWeight:700,color:'#f87171'}},['−$'+fmt(cTotal)])]));
+    wrap.appendChild(cc);
+  }
+
+  // 結餘大字
+  if(inc>0||exp>0||cTotal>0){
+    const bc=card(null,[]);
+    bc.appendChild(g3(mbox('個人支出',exp,'c-e'),mbox('公積金',cTotal,'c-g'),mbox('合計支出',exp+cTotal,'c-e')));
+    bc.appendChild(div({style:{textAlign:'center',paddingTop:'10px',borderTop:'1px solid #243d55',marginTop:'12px'}},[
+      div({style:{fontSize:'.72rem',color:'#6a8fa8',marginBottom:'6px'}},['本月結餘']),
+      div({style:{fontFamily:'monospace',fontSize:'2rem',fontWeight:700,color:bal>=0?'#2dd4bf':'#f87171'}},[(bal>=0?'':'−')+'$'+fmt(Math.abs(bal))])
+    ]));
+    wrap.appendChild(bc);
+  }
+  return wrap;
 }
 
-// ── 純 CSS 長條圖（不需外部套件）────────────────────────
-function CSSBarChart({ data }) {
-  if (!data || data.length === 0) return (
-    <div style={{textAlign:"center",padding:"20px 0",color:C.muted,fontSize:".85rem"}}>本月尚無資料</div>
-  );
-  const max = Math.max(...data.map(d => Math.max(d.alloc, d.spent)), 1);
-  return (
-    <div style={{overflowX:"auto"}}>
-      <div style={{display:"flex",alignItems:"flex-end",gap:8,minHeight:160,padding:"0 4px 8px",minWidth:data.length*64}}>
-        {data.map((d,i) => (
-          <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-            <div style={{width:"100%",display:"flex",gap:3,alignItems:"flex-end",height:130}}>
-              <div style={{flex:1,background:C.blue,borderRadius:"4px 4px 0 0",height:Math.max((d.alloc/max*130),2)+"px",transition:"height .4s",minWidth:8,position:"relative"}} title={"分配 $"+fmt(d.alloc)}>
-                {d.alloc>0&&<div style={{position:"absolute",top:-18,left:"50%",transform:"translateX(-50%)",fontSize:".55rem",color:C.blue,whiteSpace:"nowrap"}}>${d.alloc>=1000?(d.alloc/1000).toFixed(0)+"k":d.alloc}</div>}
-              </div>
-              <div style={{flex:1,background:C.exp,borderRadius:"4px 4px 0 0",height:Math.max((d.spent/max*130),d.spent>0?2:0)+"px",transition:"height .4s",minWidth:8,position:"relative"}} title={"支出 $"+fmt(d.spent)}>
-                {d.spent>0&&<div style={{position:"absolute",top:-18,left:"50%",transform:"translateX(-50%)",fontSize:".55rem",color:C.exp,whiteSpace:"nowrap"}}>${d.spent>=1000?(d.spent/1000).toFixed(0)+"k":d.spent}</div>}
-              </div>
-            </div>
-            <div style={{fontSize:".65rem",color:C.muted,textAlign:"center"}}>{d.icon}</div>
-            <div style={{fontSize:".6rem",color:C.muted,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",width:"100%"}}>{d.name}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{display:"flex",justifyContent:"center",gap:16,marginTop:4}}>
-        {[["分配",C.blue],["支出",C.exp]].map(([l,col])=>(
-          <div key={l} style={{display:"flex",alignItems:"center",gap:4,fontSize:".75rem",color:C.muted}}>
-            <div style={{width:10,height:10,borderRadius:2,background:col}}/>{l}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+// ════ 事件綁定 ═══════════════════════════════════════════
+document.getElementById('prev-mo').addEventListener('click',()=>{S.mo--;if(S.mo<1){S.mo=12;S.yr--;}S.armedDel={};render();});
+document.getElementById('next-mo').addEventListener('click',()=>{S.mo++;if(S.mo>12){S.mo=1;S.yr++;}S.armedDel={};render();});
+document.getElementById('nav').addEventListener('click',e=>{
+  const t=e.target.closest('[data-tab]');
+  if(t){S.tab=parseInt(t.dataset.tab);S.armedDel={};render();}
+});
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+// ════ 啟動 ══════════════════════════════════════════════
+render();
 </script>
 </body>
 </html>
