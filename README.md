@@ -1,3 +1,3 @@
 # FamiFound
 FamilyFound
-https://github.com/ConstantinoWa/FamiFound
+https://constantinowa.github.io/FamiFound
