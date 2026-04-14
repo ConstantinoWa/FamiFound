@@ -83,7 +83,7 @@ textarea{resize:none;height:52px;}
 <body>
 <div id="app">
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04111958</div>
+    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04142018</div>
     <div style="display:flex;align-items:center;gap:2px;">
       <button id="prev-mo" style="background:none;border:none;color:#00d4aa;font-size:1.3rem;cursor:pointer;padding:2px 8px;">‹</button>
       <span id="mo-lbl" style="font-family:monospace;font-size:.82rem;min-width:66px;text-align:center;"></span>
@@ -906,7 +906,9 @@ function page2(){
   const mk=mkey();
   const monthExps=[...S.expenses.filter(e=>e.date.startsWith(mk))].reverse();
   const cur=isCurrent();
-  const valid=cur&&S.ledgerCat&&S.ledgerType&&S.ledgerAmt>0;
+  // 編輯中的記錄 id（null = 新增模式）
+  if(!S._editExpId)S._editExpId=null;
+  const editRec=S._editExpId?S.expenses.find(e=>e.id===S._editExpId):null;
   const chartData=S.categories.map(cat=>({
     name:cat.name,icon:cat.icon,
     alloc:(S.allocs.find(a=>a.catId===cat.id&&a.month===mk)||{amount:0}).amount,
@@ -918,13 +920,22 @@ function page2(){
 
   // 新增表單（唯讀時隱藏）
   if(cur){
-  const fc=card('新增支出',[]);
+  // 編輯模式時，第一次進入才預填（之後 render 不覆蓋使用者的選擇）
+  if(editRec && S._editExpId !== S._editExpIdPrev){
+    S.ledgerCat=editRec.catId;
+    S.ledgerType=editRec.subCat;
+    S._editExpIdPrev=S._editExpId;
+  }
+  const fc=card(editRec?'✏️ 修改記錄':'新增支出',[]);
+  if(editRec){
+    fc.style.border='1.5px solid #ffd166';
+  }
 
   // ── 分類 ──
   fc.appendChild(sl('支出分類'));
   const chipWrap=div({style:{display:'flex',flexWrap:'wrap',gap:'7px',marginBottom:'14px'}},[]);
   S.categories.forEach(cat=>{
-    const c=div({className:'chip'+(S.ledgerCat===cat.id?' on':''),onClick:()=>{S.ledgerCat=cat.id;updateBtn();}},[cat.icon,' ',cat.name]);
+    const c=div({className:'chip'+(S.ledgerCat===cat.id?' on':''),onClick:()=>{S.ledgerCat=cat.id;render();}},[cat.icon,' ',cat.name]);
     chipWrap.appendChild(c);
   });
   fc.appendChild(chipWrap);
@@ -933,61 +944,116 @@ function page2(){
   fc.appendChild(sl('消費項目'));
   const typeGrid=div({style:{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'7px',marginBottom:'14px'}},[]);
   EXP_TYPES.forEach(({i,l})=>{
-    const c=div({style:{padding:'8px 4px 7px',borderRadius:'10px',textAlign:'center',cursor:'pointer',userSelect:'none',background:S.ledgerType===l?'rgba(0,212,170,.1)':'#1a2f42',border:'1.5px solid '+(S.ledgerType===l?'#00d4aa':'#243d55')},onClick:()=>{S.ledgerType=l;updateBtn();}},[ div({style:{fontSize:'1.2rem',marginBottom:'2px'}},[i]), div({style:{fontSize:'.63rem',color:S.ledgerType===l?'#00d4aa':'#6a8fa8'}},[l]) ]);
+    const c=div({style:{padding:'8px 4px 7px',borderRadius:'10px',textAlign:'center',cursor:'pointer',userSelect:'none',background:S.ledgerType===l?'rgba(0,212,170,.1)':'#1a2f42',border:'1.5px solid '+(S.ledgerType===l?'#00d4aa':'#243d55')},onClick:()=>{S.ledgerType=l;render();}},[ div({style:{fontSize:'1.2rem',marginBottom:'2px'}},[i]), div({style:{fontSize:'.63rem',color:S.ledgerType===l?'#00d4aa':'#6a8fa8'}},[l]) ]);
     typeGrid.appendChild(c);
   });
   fc.appendChild(typeGrid);
 
-  // ── 金額（普通 input，即時讀值）──
+  // ── 日期（預設今日，可往前調整）──
+  const todayStr=(()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());})();
+  const initDateStr=editRec?editRec.date.slice(0,10):todayStr;
+  fc.appendChild(sl('日期'));
+  const dateInp=inp({type:'date',value:initDateStr,max:todayStr,
+    style:{fontSize:'.95rem',fontWeight:600,textAlign:'center',marginBottom:'10px',color:'#e8f4fd',background:'#152536',border:'2px solid #243d55',borderRadius:'9px',padding:'9px 12px'}});
+  dateInp.addEventListener('focus',()=>{dateInp.style.border='2px solid #00d4aa';});
+  dateInp.addEventListener('blur', ()=>{dateInp.style.border='2px solid #243d55';});
+  fc.appendChild(dateInp);
+
+  // ── 金額（計算機模式）──
   fc.appendChild(sl('金額'));
-  const amtInp=inp({type:'tel',inputMode:'numeric',placeholder:'輸入金額（元）',style:{fontSize:'1.1rem',fontWeight:700,letterSpacing:'2px',textAlign:'center',marginBottom:'10px'}});
-  if(S.ledgerAmt)amtInp.value=String(S.ledgerAmt);
-  amtInp.addEventListener('input',e=>{
-    amtInp.value=e.target.value.replace(/\D/g,'').slice(0,6);
+  let calcExpr=editRec?String(editRec.amount):'';
+  const calcDisp=div({style:{fontFamily:'monospace',fontSize:'1.3rem',fontWeight:700,textAlign:'right',padding:'10px 14px',background:'#0d1f2d',borderRadius:'10px',marginBottom:'4px',minHeight:'50px',color:'#e8f4fd',wordBreak:'break-all'}},[editRec?'$'+fmt(editRec.amount):'0']);
+  const calcSub=div({style:{fontFamily:'monospace',fontSize:'.78rem',textAlign:'right',padding:'0 14px 8px',color:'#6a8fa8',minHeight:'20px'}},['']);
+  fc.appendChild(calcDisp);
+  fc.appendChild(calcSub);
+
+  function getCalcAmt(){
+    try{const s=calcExpr.replace(/[^0-9+\-*/().]/g,'');if(!s)return 0;return Math.round(Function('"use strict";return('+s+')')())||0;}catch(e){return 0;}
+  }
+  function calcUpdate(){
+    if(!calcExpr){calcDisp.textContent='0';calcSub.textContent='';updateBtn();return;}
+    calcDisp.textContent=calcExpr;
+    try{
+      const s=calcExpr.replace(/[^0-9+\-*/().]/g,'');
+      const r=Function('"use strict";return('+s+')')();
+      calcSub.textContent=(isFinite(r)&&calcExpr.match(/[+\-*/]/))
+        ?'= $'+Number(Math.round(r)).toLocaleString('zh-TW'):'';
+    }catch(e){calcSub.textContent='';}
     updateBtn();
-  });
-  fc.appendChild(amtInp);
+  }
+  function calcPress(k){
+    if(k==='C'){calcExpr='';calcUpdate();return;}
+    if(k==='⌫'){calcExpr=calcExpr.slice(0,-1);calcUpdate();return;}
+    if(k==='='){
+      const r=getCalcAmt();
+      if(r){calcExpr=String(r);calcDisp.textContent='$'+Number(r).toLocaleString('zh-TW');calcSub.textContent='';}
+      updateBtn();return;
+    }
+    if(['+','-','×','÷'].includes(k)&&['+','-','×','÷'].includes(calcExpr.slice(-1)))
+      calcExpr=calcExpr.slice(0,-1);
+    const opMap={'×':'*','÷':'/'};
+    calcExpr+=(opMap[k]||k);
+    calcUpdate();
+  }
+  const keys=[['7','8','9','+'],[' 4','5','6','-'],['1','2','3','×'],['C','0','⌫','=']];
+  const keyBg={'+':'#2a4060','-':'#2a4060','×':'#2a4060','÷':'#2a4060','=':'#00d4aa','C':'rgba(248,113,113,.2)','⌫':'#2a4060'};
+  const keyCl={'=':'#0d1f2d','C':'#f87171'};
+  const keypad=div({style:{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'6px',marginBottom:'10px'}},[]);
+  [['7','8','9','+'],[' 4','5','6','-'],['1','2','3','×'],['C','0','⌫','=']].forEach(row=>row.forEach(k=>{
+    const kk=k.trim();
+    keypad.appendChild(btn({style:{padding:'15px 4px',borderRadius:'10px',border:'none',background:keyBg[kk]||'#152536',color:keyCl[kk]||'#e8f4fd',fontSize:kk==='⌫'?'1.1rem':'1.2rem',fontWeight:700,cursor:'pointer',userSelect:'none'},onClick:()=>calcPress(kk)},[kk]));
+  }));
+  fc.appendChild(keypad);
 
   // ── 備註 ──
-  const ni=inp({type:'text',value:S.ledgerNote||'',placeholder:'備註（可留空）',style:{marginBottom:'12px'}});
+  const ni=inp({type:'text',value:editRec?editRec.note||'':S.ledgerNote||'',placeholder:'備註（可留空）',style:{marginBottom:'12px'}});
   ni.addEventListener('input',e=>{S.ledgerNote=e.target.value;});
   fc.appendChild(ni);
 
-  // ── 按鈕：永遠顯示，點擊時判斷 ──
-  const submitBtn=btn({className:'btn btn-dis',onClick:()=>{
-    const cat=S.categories.find(c=>c.id===S.ledgerCat);
-    const typ=EXP_TYPES.find(t=>t.l===S.ledgerType);
-    const a=parseInt(amtInp.value)||0;
-    if(!cat){showHint(fc,'請選擇支出分類');return;}
-    if(!typ){showHint(fc,'請選擇消費項目');return;}
-    if(!a){amtInp.focus();amtInp.style.border='1px solid #f87171';return;}
-    amtInp.style.border='';
-    save('expenses',[...S.expenses,{id:uid(),catId:S.ledgerCat,catName:cat.name,catIcon:cat.icon,subCat:S.ledgerType,subIcon:typ.i,amount:a,note:ni.value.trim(),date:now_()}]);
-    S.ledgerCat=null;S.ledgerType=null;S.ledgerAmt=0;S.ledgerNote='';render();
-  }},['記錄支出 ✓']);
-  fc.appendChild(submitBtn);
+  // ── 按鈕 ──
+  if(editRec){
+    // 編輯模式：取消 + 確認修改
+    const btnRow=div({style:{display:'flex',gap:'8px'}},[]);
+    btnRow.appendChild(btn({className:'btn-w',style:{flex:1,padding:'12px',borderRadius:'10px',fontSize:'.92rem'},onClick:()=>{
+      S._editExpId=null;S._editExpIdPrev=null;S.ledgerCat=null;S.ledgerType=null;render();
+    }},['✕ 取消']));
+    const saveEditBtn=btn({className:'btn',style:{flex:2,padding:'12px',borderRadius:'10px',fontSize:'.92rem'},onClick:()=>{
+      const cat=S.categories.find(c=>c.id===S.ledgerCat);
+      const typ=EXP_TYPES.find(t=>t.l===S.ledgerType);
+      const a=getCalcAmt();
+      if(!cat||!typ||!a)return;
+      const dateVal=dateInp.value||todayStr;
+      const timeStr=dateVal===initDateStr?editRec.date:dateVal+' 00:00';
+      save('expenses',S.expenses.map(e=>e.id===S._editExpId?{...e,catId:S.ledgerCat,catName:cat.name,catIcon:cat.icon,subCat:S.ledgerType,subIcon:typ.i,amount:a,note:ni.value.trim(),date:timeStr}:e));
+      S._editExpId=null;S._editExpIdPrev=null;S.ledgerCat=null;S.ledgerType=null;S.ledgerAmt=0;S.ledgerNote='';render();
+    }},['✓ 確認修改']);
+    btnRow.appendChild(saveEditBtn);
+    fc.appendChild(btnRow);
+  } else {
+    const submitBtn=btn({className:'btn btn-dis',onClick:()=>{
+      const cat=S.categories.find(c=>c.id===S.ledgerCat);
+      const typ=EXP_TYPES.find(t=>t.l===S.ledgerType);
+      const a=getCalcAmt();
+      if(!cat){showHint(fc,'請選擇支出分類');return;}
+      if(!typ){showHint(fc,'請選擇消費項目');return;}
+      if(!a){calcDisp.style.outline='2px solid #f87171';setTimeout(()=>calcDisp.style.outline='',1500);return;}
+      calcDisp.style.outline='';
+      const dateVal=dateInp.value||todayStr;
+      const timeStr=dateVal===todayStr?now_():dateVal+' 00:00';
+      save('expenses',[...S.expenses,{id:uid(),catId:S.ledgerCat,catName:cat.name,catIcon:cat.icon,subCat:S.ledgerType,subIcon:typ.i,amount:a,note:ni.value.trim(),date:timeStr}]);
+      S.ledgerCat=null;S.ledgerType=null;S.ledgerAmt=0;S.ledgerNote='';calcExpr='';render();
+    }},['記錄支出 ✓']);
+    fc.appendChild(submitBtn);
+  }
   wrap.appendChild(fc);
 
-  // 即時更新按鈕樣式（三個條件都滿足才亮起）
+  // 計算機按下時更新按鈕狀態（分類/項目點擊直接 render，不需要這裡處理）
   function updateBtn(){
-    const a=parseInt(amtInp.value)||0;
+    if(editRec)return;
+    const a=getCalcAmt();
     const ok=S.ledgerCat&&S.ledgerType&&a>0;
-    submitBtn.className='btn'+(ok?'':' btn-dis');
-    submitBtn.textContent=ok?'記錄支出 ✓':'記錄支出';
-    // 更新分類高亮
-    chipWrap.querySelectorAll('.chip').forEach((el,i)=>{
-      el.className='chip'+(S.categories[i]&&S.categories[i].id===S.ledgerCat?' on':'');
-    });
-    // 更新項目高亮
-    typeGrid.querySelectorAll('div[style]').forEach((el,i)=>{
-      if(EXP_TYPES[i]){
-        const on=S.ledgerType===EXP_TYPES[i].l;
-        el.style.background=on?'rgba(0,212,170,.1)':'#1a2f42';
-        el.style.border='1.5px solid '+(on?'#00d4aa':'#243d55');
-        const lbl=el.querySelector('div:last-child');
-        if(lbl)lbl.style.color=on?'#00d4aa':'#6a8fa8';
-      }
-    });
+    const sb=fc.querySelector('button.btn, button.btn-dis');
+    if(sb){sb.className='btn'+(ok?'':' btn-dis');sb.textContent=ok?'記錄支出 ✓':'記錄支出';}
   }
   function showHint(parent,msg){
     let h=parent.querySelector('.form-hint');
@@ -1003,10 +1069,23 @@ function page2(){
     monthExps.forEach((e,i)=>{
       const r=div({className:'rec'},[]);
       r.appendChild(div({style:{width:'34px',height:'34px',borderRadius:'50%',background:'#152536',border:'1px solid #243d55',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1rem',flexShrink:0}},[e.subIcon]));
-      const b=div({style:{flex:1,minWidth:0}},[]);
-      const t=div({className:'row-sb'},[span({style:{fontSize:'.85rem',fontWeight:500}},[e.catIcon+e.catName+' › '+e.subCat]),span({style:{fontFamily:'monospace',fontWeight:700,color:'#f87171',flexShrink:0}},['−$'+fmt(e.amount)])]);
+      const b=div({style:{flex:1,minWidth:0,cursor:'pointer'},onClick:()=>{
+        if(!cur)return;
+        S._editExpId=e.id;S._editExpIdPrev=null;S.ledgerCat=null;S.ledgerType=null;
+        render();
+        // 滾動到表單頂部
+        setTimeout(()=>document.getElementById('scr').scrollTo({top:0,behavior:'smooth'}),60);
+      }},[]);
+      const editing=S._editExpId===e.id;
+      b.style.background=editing?'rgba(255,209,102,.06)':'';
+      b.style.borderRadius=editing?'8px':'';
+      b.style.padding=editing?'4px 6px':'';
+      const t=div({className:'row-sb'},[
+        span({style:{fontSize:'.85rem',fontWeight:500,color:editing?'#ffd166':'inherit'}},[e.catIcon+e.catName+' › '+e.subCat]),
+        span({style:{fontFamily:'monospace',fontWeight:700,color:'#f87171',flexShrink:0}},['−$'+fmt(e.amount)])
+      ]);
       b.appendChild(t);
-      b.appendChild(div({style:{fontSize:'.69rem',color:'#6a8fa8',marginTop:'3px'}},[e.date.slice(5,16)+(e.note?' · '+e.note:'')]));
+      b.appendChild(div({style:{fontSize:'.69rem',color:'#6a8fa8',marginTop:'3px'}},[e.date.slice(5,16)+(e.note?' · '+e.note:'')+(cur?' ✏️':'')]));
       r.appendChild(b);
       if(cur)r.appendChild(delBtn('exp-'+e.id,()=>{save('expenses',S.expenses.filter(ex=>ex.id!==e.id));render();}));
       mc.appendChild(r);
