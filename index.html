@@ -83,7 +83,7 @@ textarea{resize:none;height:52px;}
 <body>
 <div id="app">
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04142018</div>
+    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04190823</div>
     <div style="display:flex;align-items:center;gap:2px;">
       <button id="prev-mo" style="background:none;border:none;color:#00d4aa;font-size:1.3rem;cursor:pointer;padding:2px 8px;">‹</button>
       <span id="mo-lbl" style="font-family:monospace;font-size:.82rem;min-width:66px;text-align:center;"></span>
@@ -1065,26 +1065,72 @@ function page2(){
   } // end if(cur)
 
   if(monthExps.length){
-    const mc=card('本月支出明細',[]);
-    monthExps.forEach((e,i)=>{
+    // ── 排序 ──
+    if(!S._expSort)S._expSort='date_desc';
+    const sortOpts=[
+      {k:'cat', l:'🗂 分類'},
+    ];
+    function sortedExps(){
+      const arr=[...monthExps];
+      if(S._expSort==='date_asc')return arr.reverse();
+      if(S._expSort==='cat')return arr.sort((a,b)=>{
+        const cm=a.catName.localeCompare(b.catName,'zh-TW');
+        if(cm!==0)return cm;
+        return a.subCat.localeCompare(b.subCat,'zh-TW');
+      });
+      return arr;
+    }
+
+    const mc=card(null,[]);
+    const sortRow=div({style:{display:'flex',gap:'6px',marginBottom:'12px',alignItems:'center'}},[]);
+
+    // 日期切換鈕（一顆，箭頭指示方向）
+    const dateBtn=btn({style:{padding:'6px 12px',borderRadius:'20px',border:'1.5px solid '+(S._expSort!=='cat'?'#00d4aa':'#243d55'),background:S._expSort!=='cat'?'rgba(0,212,170,.1)':'none',color:S._expSort!=='cat'?'#00d4aa':'#6a8fa8',fontSize:'.75rem',fontWeight:S._expSort!=='cat'?700:400,cursor:'pointer',whiteSpace:'nowrap'},onClick:()=>{
+      if(S._expSort==='cat')S._expSort='date_desc';
+      else S._expSort=S._expSort==='date_desc'?'date_asc':'date_desc';
+      render();
+    }},['📅 日期 '+(S._expSort==='date_asc'?'↑':'↓')]);
+    sortRow.appendChild(dateBtn);
+
+    // 分類鈕
+    const on=S._expSort==='cat';
+    sortRow.appendChild(btn({style:{padding:'6px 12px',borderRadius:'20px',border:'1.5px solid '+(on?'#00d4aa':'#243d55'),background:on?'rgba(0,212,170,.1)':'none',color:on?'#00d4aa':'#6a8fa8',fontSize:'.75rem',fontWeight:on?700:400,cursor:'pointer',whiteSpace:'nowrap'},onClick:()=>{S._expSort='cat';render();}},['🗂 分類']));
+
+    // 筆數小計
+    const tot=monthExps.reduce((s,e)=>s+e.amount,0);
+    sortRow.appendChild(div({style:{marginLeft:'auto',fontSize:'.75rem',color:'#6a8fa8',whiteSpace:'nowrap'}},['共 '+monthExps.length+' 筆　$'+fmt(tot)]));
+    mc.appendChild(sortRow);
+
+    // 明細列
+    sortedExps().forEach((e,i,arr)=>{
+      // 分類排序時，顯示分類群組標頭
+      if(S._expSort==='cat'){
+        const prev=arr[i-1];
+        if(!prev||prev.catName!==e.catName){
+          const grpHdr=div({style:{display:'flex',alignItems:'center',gap:'6px',padding:'8px 0 4px',borderBottom:'1px solid #243d55',marginBottom:'4px'}},[
+            span({style:{fontSize:'1rem'}},[e.catIcon]),
+            span({style:{fontSize:'.82rem',fontWeight:700,color:'#4fc3f7'}},[e.catName]),
+            span({style:{fontSize:'.72rem',color:'#6a8fa8',marginLeft:'auto'}},['$'+fmt(arr.filter(x=>x.catName===e.catName).reduce((s,x)=>s+x.amount,0))])
+          ]);
+          mc.appendChild(grpHdr);
+        }
+      }
       const r=div({className:'rec'},[]);
       r.appendChild(div({style:{width:'34px',height:'34px',borderRadius:'50%',background:'#152536',border:'1px solid #243d55',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1rem',flexShrink:0}},[e.subIcon]));
       const b=div({style:{flex:1,minWidth:0,cursor:'pointer'},onClick:()=>{
         if(!cur)return;
         S._editExpId=e.id;S._editExpIdPrev=null;S.ledgerCat=null;S.ledgerType=null;
         render();
-        // 滾動到表單頂部
         setTimeout(()=>document.getElementById('scr').scrollTo({top:0,behavior:'smooth'}),60);
       }},[]);
       const editing=S._editExpId===e.id;
       b.style.background=editing?'rgba(255,209,102,.06)':'';
       b.style.borderRadius=editing?'8px':'';
       b.style.padding=editing?'4px 6px':'';
-      const t=div({className:'row-sb'},[
+      b.appendChild(div({className:'row-sb'},[
         span({style:{fontSize:'.85rem',fontWeight:500,color:editing?'#ffd166':'inherit'}},[e.catIcon+e.catName+' › '+e.subCat]),
         span({style:{fontFamily:'monospace',fontWeight:700,color:'#f87171',flexShrink:0}},['−$'+fmt(e.amount)])
-      ]);
-      b.appendChild(t);
+      ]));
       b.appendChild(div({style:{fontSize:'.69rem',color:'#6a8fa8',marginTop:'3px'}},[e.date.slice(5,16)+(e.note?' · '+e.note:'')+(cur?' ✏️':'')]));
       r.appendChild(b);
       if(cur)r.appendChild(delBtn('exp-'+e.id,()=>{save('expenses',S.expenses.filter(ex=>ex.id!==e.id));render();}));
@@ -1093,7 +1139,189 @@ function page2(){
     wrap.appendChild(mc);
   }
 
-  wrap.appendChild(card('本月分配 vs 支出',[cssBarChart(chartData)]));
+  // ── 截圖區塊（隱藏，Canvas 直接從資料繪製不依賴此 DOM）──
+  const shotZone = div({id:'shot-zone',style:{display:'none'}},[]);
+  wrap.appendChild(shotZone);
+
+  // ── 截圖分享按鈕（純 Canvas，零外部依賴）──
+  if(monthExps.length){
+    const shareBtn=btn({style:{width:'100%',padding:'12px',marginTop:'8px',borderRadius:'10px',border:'none',background:'linear-gradient(135deg,#6366f1,#8b5cf6)',color:'#fff',fontSize:'.92rem',fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}},['📸 截圖分享']);
+    shareBtn.addEventListener('click',async()=>{
+      shareBtn.textContent='⏳ 截圖中…';shareBtn.disabled=true;
+      try{
+        const DPR=2, W=720;
+        // ── 計算總高度 ──
+        const lineH=48, padding=28, titleH=60, rowH=52;
+        const chartH=180, tickH=20, diffHdr=36, diffRow=36, diffFoot=44;
+        const totalRows=monthExps.length;
+        const diffRows=chartData.length;
+        let H=padding+titleH+(totalRows*rowH)+20+chartH+tickH+16+diffHdr+(diffRows*diffRow)+diffFoot+padding;
+        const cv=document.createElement('canvas');
+        cv.width=W*DPR; cv.height=H*DPR;
+        const cx=cv.getContext('2d');
+        cx.scale(DPR,DPR);
+        // ── 背景 ──
+        cx.fillStyle='#0d1f2d'; cx.fillRect(0,0,W,H);
+        // ── 工具函式 ──
+        function text(str,x,y,size,color,align='left',bold=false){
+          cx.font=(bold?'bold ':'')+size+'px system-ui,sans-serif';
+          cx.fillStyle=color; cx.textAlign=align;
+          cx.fillText(str,x,y);
+        }
+        function line(x1,y1,x2,y2,color,alpha=1){
+          cx.save();cx.globalAlpha=alpha;cx.strokeStyle=color;cx.lineWidth=1;
+          cx.beginPath();cx.moveTo(x1,y1);cx.lineTo(x2,y2);cx.stroke();cx.restore();
+        }
+        function roundRect(x,y,w,h,r,color){
+          cx.fillStyle=color;cx.beginPath();
+          cx.moveTo(x+r,y);cx.lineTo(x+w-r,y);cx.arcTo(x+w,y,x+w,y+r,r);
+          cx.lineTo(x+w,y+h-r);cx.arcTo(x+w,y+h,x+w-r,y+h,r);
+          cx.lineTo(x+r,y+h);cx.arcTo(x,y+h,x,y+h-r,r);
+          cx.lineTo(x,y+r);cx.arcTo(x,y,x+r,y,r);
+          cx.closePath();cx.fill();
+        }
+        let y=padding;
+        // ── 標題 ──
+        text('📊  '+S.yr+'/'+S.mo+'月  支出明細',W/2,y+36,22,'#6a8fa8','center',false);
+        y+=titleH;
+        line(28,y,W-28,y,'#243d55');
+        // ── 明細列 ──
+        monthExps.forEach(e=>{
+          y+=8;
+          // 圓圖示背景
+          roundRect(28,y+2,38,38,19,'#152536');
+          text(e.subIcon,47,y+27,18,'#fff','center');
+          // 類別
+          text(e.catIcon+e.catName+' › '+e.subCat,80,y+18,14,'#e8f4fd','left',true);
+          text(e.date.slice(5,16)+(e.note?' · '+e.note:''),80,y+36,11,'#6a8fa8');
+          // 金額
+          text('−$'+fmt(e.amount),W-28,y+22,15,'#f87171','right',true);
+          y+=rowH;
+          line(28,y,W-28,y,'#243d55',0.5);
+        });
+        y+=20;
+        // ── 長條圖背景卡 ──
+        roundRect(16,y,W-32,chartH+tickH+36,10,'#1a2f42');
+        text('本月分配 vs 支出',36,y+22,12,'#6a8fa8');
+        y+=32;
+        if(chartData.length){
+          const barAreaW=W-80, barAreaH=chartH-20;
+          const barX=40, barY=y, maxV=Math.max(...chartData.map(d=>Math.max(d.alloc,d.spent)),1);
+          const grpW=barAreaW/chartData.length, barW=Math.min(grpW*0.28,26);
+          chartData.forEach((d,i)=>{
+            const gx=barX+i*grpW+grpW/2;
+            // 分配柱
+            const aH=d.alloc/maxV*barAreaH;
+            roundRect(gx-barW-2,barY+barAreaH-aH,barW,aH,3,'#4fc3f7');
+            if(d.alloc>0){text(d.alloc>=1000?Math.round(d.alloc/1000)+'k':String(d.alloc),gx-barW/2-2,barY+barAreaH-aH-5,9,'#4fc3f7','center');}
+            // 支出柱
+            const sH=d.spent/maxV*barAreaH;
+            if(d.spent>0){
+              roundRect(gx+2,barY+barAreaH-sH,barW,sH,3,'#f87171');
+              text(d.spent>=1000?Math.round(d.spent/1000)+'k':String(d.spent),gx+barW/2+2,barY+barAreaH-sH-5,9,'#f87171','center');
+            }
+            // 類別名
+            text(d.icon,gx,barY+barAreaH+16,13,'#e8f4fd','center');
+            text(d.name,gx,barY+barAreaH+30,9,'#6a8fa8','center');
+          });
+          // 圖例
+          roundRect(W-100,y+barAreaH+38,10,10,2,'#4fc3f7');
+          text('分配',W-86,y+barAreaH+47,10,'#6a8fa8');
+          roundRect(W-60,y+barAreaH+38,10,10,2,'#f87171');
+          text('支出',W-46,y+barAreaH+47,10,'#6a8fa8');
+        }
+        y+=chartH+tickH+16;
+        // ── 差額表背景卡 ──
+        const diffCardH=diffHdr+(diffRows*diffRow)+diffFoot;
+        roundRect(16,y,W-32,diffCardH,10,'#1a2f42');
+        text('分配 vs 支出　差額',36,y+22,12,'#6a8fa8');
+        y+=diffHdr;
+        // 表頭
+        const cols=[36,W*0.45,W*0.62,W*0.79,W-28];
+        text('類別',cols[0],y,11,'#6a8fa8');
+        text('分配', cols[2],y,11,'#6a8fa8','right');
+        text('支出', cols[3],y,11,'#6a8fa8','right');
+        text('差額', cols[4],y,11,'#6a8fa8','right');
+        y+=6; line(28,y,W-28,y,'#243d55',0.7); y+=diffRow-20;
+        chartData.forEach(d=>{
+          const diff=d.alloc-d.spent;
+          text(d.icon+' '+d.name,cols[0],y,13,'#e8f4fd');
+          text('$'+fmt(d.alloc),cols[2],y,12,'#4fc3f7','right');
+          text('$'+fmt(d.spent), cols[3],y,12,'#f87171','right');
+          text((diff>=0?'+':'-')+'$'+fmt(Math.abs(diff)),cols[4],y,12,diff>=0?'#2dd4bf':'#f87171','right',true);
+          y+=diffRow;
+          line(28,y-16,W-28,y-16,'#243d55',0.3);
+        });
+        // 合計列
+        const totA=chartData.reduce((s,d)=>s+d.alloc,0);
+        const totS=chartData.reduce((s,d)=>s+d.spent,0);
+        const totD=totA-totS;
+        line(28,y-6,W-28,y-6,'#243d55',0.8);y+=8;
+        text('合計',cols[0],y,13,'#e8f4fd',undefined,true);
+        text('$'+fmt(totA),cols[2],y,13,'#4fc3f7','right',true);
+        text('$'+fmt(totS),cols[3],y,13,'#f87171','right',true);
+        text((totD>=0?'+':'-')+'$'+fmt(Math.abs(totD)),cols[4],y,13,totD>=0?'#2dd4bf':'#f87171','right',true);
+
+        // ── 顯示預覽 Modal ──
+        const dataUrl=cv.toDataURL('image/png');
+        const fname='FamiFound_'+S.yr+pad(S.mo)+'.png';
+
+        // 建立全螢幕 overlay
+        const overlay=document.createElement('div');
+        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;flex-direction:column;overflow:hidden;';
+
+        // 頂部按鈕列
+        const topBar=document.createElement('div');
+        topBar.style.cssText='display:flex;gap:10px;padding:12px 14px;flex-shrink:0;';
+
+        const closeBtn2=document.createElement('button');
+        closeBtn2.textContent='✕ 關閉';
+        closeBtn2.style.cssText='flex:1;padding:11px;border-radius:9px;border:1px solid #555;background:none;color:#aaa;font-size:.9rem;font-weight:700;cursor:pointer;';
+        closeBtn2.onclick=()=>{document.body.removeChild(overlay);};
+
+        const shareBtn2=document.createElement('button');
+        shareBtn2.textContent='📤 分享';
+        shareBtn2.style.cssText='flex:1;padding:11px;border-radius:9px;border:none;background:#6366f1;color:#fff;font-size:.9rem;font-weight:700;cursor:pointer;';
+        shareBtn2.onclick=async()=>{
+          try{
+            const blob=await fetch(dataUrl).then(r=>r.blob());
+            const file=new File([blob],fname,{type:'image/png'});
+            if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+              await navigator.share({files:[file],title:S.yr+'/'+S.mo+'月 支出明細'});
+            } else {
+              const a=document.createElement('a');a.href=dataUrl;a.download=fname;a.click();
+            }
+          }catch(e){console.error(e);}
+        };
+
+        topBar.appendChild(closeBtn2);
+        topBar.appendChild(shareBtn2);
+        overlay.appendChild(topBar);
+
+        // 提示文字
+        const hint=document.createElement('div');
+        hint.textContent='長按圖片可儲存至相簿';
+        hint.style.cssText='text-align:center;font-size:.75rem;color:#888;padding:0 0 8px;flex-shrink:0;';
+        overlay.appendChild(hint);
+
+        // 圖片預覽（可捲動）
+        const imgWrap=document.createElement('div');
+        imgWrap.style.cssText='flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 14px 20px;';
+        const img=document.createElement('img');
+        img.src=dataUrl;
+        img.style.cssText='width:100%;border-radius:10px;display:block;';
+        imgWrap.appendChild(img);
+        overlay.appendChild(imgWrap);
+
+        document.body.appendChild(overlay);
+
+      }catch(err){
+        console.error(err);alert('截圖失敗：'+err.message);
+      }finally{shareBtn.textContent='📸 截圖分享';shareBtn.disabled=false;}
+    });
+    wrap.appendChild(shareBtn);
+  }
+
   return wrap;
 }
 
