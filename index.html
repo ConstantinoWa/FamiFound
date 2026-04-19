@@ -83,7 +83,7 @@ textarea{resize:none;height:52px;}
 <body>
 <div id="app">
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04190823</div>
+    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04191041</div>
     <div style="display:flex;align-items:center;gap:2px;">
       <button id="prev-mo" style="background:none;border:none;color:#00d4aa;font-size:1.3rem;cursor:pointer;padding:2px 8px;">‹</button>
       <span id="mo-lbl" style="font-family:monospace;font-size:.82rem;min-width:66px;text-align:center;"></span>
@@ -967,21 +967,20 @@ function page2(){
   fc.appendChild(calcDisp);
   fc.appendChild(calcSub);
 
-  function getCalcAmt(){
+  const getCalcAmt=()=>{
     try{const s=calcExpr.replace(/[^0-9+\-*/().]/g,'');if(!s)return 0;return Math.round(Function('"use strict";return('+s+')')())||0;}catch(e){return 0;}
-  }
-  function calcUpdate(){
+  };
+  const calcUpdate=()=>{
     if(!calcExpr){calcDisp.textContent='0';calcSub.textContent='';updateBtn();return;}
     calcDisp.textContent=calcExpr;
     try{
       const s=calcExpr.replace(/[^0-9+\-*/().]/g,'');
       const r=Function('"use strict";return('+s+')')();
-      calcSub.textContent=(isFinite(r)&&calcExpr.match(/[+\-*/]/))
-        ?'= $'+Number(Math.round(r)).toLocaleString('zh-TW'):'';
+      calcSub.textContent=(isFinite(r)&&calcExpr.match(/[+\-*/]/))?'= $'+Number(Math.round(r)).toLocaleString('zh-TW'):'';
     }catch(e){calcSub.textContent='';}
     updateBtn();
-  }
-  function calcPress(k){
+  };
+  const calcPress=k=>{
     if(k==='C'){calcExpr='';calcUpdate();return;}
     if(k==='⌫'){calcExpr=calcExpr.slice(0,-1);calcUpdate();return;}
     if(k==='='){
@@ -994,7 +993,7 @@ function page2(){
     const opMap={'×':'*','÷':'/'};
     calcExpr+=(opMap[k]||k);
     calcUpdate();
-  }
+  };
   const keys=[['7','8','9','+'],[' 4','5','6','-'],['1','2','3','×'],['C','0','⌫','=']];
   const keyBg={'+':'#2a4060','-':'#2a4060','×':'#2a4060','÷':'#2a4060','=':'#00d4aa','C':'rgba(248,113,113,.2)','⌫':'#2a4060'};
   const keyCl={'=':'#0d1f2d','C':'#f87171'};
@@ -1067,19 +1066,19 @@ function page2(){
   if(monthExps.length){
     // ── 排序 ──
     if(!S._expSort)S._expSort='date_desc';
-    const sortOpts=[
-      {k:'cat', l:'🗂 分類'},
-    ];
-    function sortedExps(){
+    const sortedExps=()=>{
       const arr=[...monthExps];
-      if(S._expSort==='date_asc')return arr.reverse();
+      if(S._expSort==='date_asc')
+        return arr.sort((a,b)=>a.date.localeCompare(b.date));
+      if(S._expSort==='date_desc')
+        return arr.sort((a,b)=>b.date.localeCompare(a.date));
       if(S._expSort==='cat')return arr.sort((a,b)=>{
         const cm=a.catName.localeCompare(b.catName,'zh-TW');
         if(cm!==0)return cm;
         return a.subCat.localeCompare(b.subCat,'zh-TW');
       });
       return arr;
-    }
+    };
 
     const mc=card(null,[]);
     const sortRow=div({style:{display:'flex',gap:'6px',marginBottom:'12px',alignItems:'center'}},[]);
@@ -1139,185 +1138,235 @@ function page2(){
     wrap.appendChild(mc);
   }
 
+  // ── 長條圖 ──
+  wrap.appendChild(card('本月分配 vs 支出',[cssBarChart(chartData)]));
+
+  // ── 差額表 ──
+  if(chartData.length){
+    const diffCard=card('分配 vs 支出 差額',[]);
+    const hdr=div({style:{display:'grid',gridTemplateColumns:'1fr 80px 80px 80px',gap:'4px',padding:'4px 0',borderBottom:'1px solid #243d55',marginBottom:'6px'}},[]);
+    ['類別','分配','支出','差額'].forEach((h,i)=>hdr.appendChild(div({style:{fontSize:'.68rem',color:'#6a8fa8',textAlign:i===0?'left':'right'}},[h])));
+    diffCard.appendChild(hdr);
+    chartData.forEach(d=>{
+      const diff=d.alloc-d.spent;
+      const row=div({style:{display:'grid',gridTemplateColumns:'1fr 80px 80px 80px',gap:'4px',padding:'6px 0',borderBottom:'1px solid rgba(36,61,85,.4)'}},[]);
+      row.appendChild(div({style:{fontSize:'.82rem',display:'flex',alignItems:'center',gap:'4px'}},[d.icon,' ',d.name]));
+      row.appendChild(div({style:{fontFamily:'monospace',fontSize:'.78rem',textAlign:'right',color:'#4fc3f7'}},['$'+fmt(d.alloc)]));
+      row.appendChild(div({style:{fontFamily:'monospace',fontSize:'.78rem',textAlign:'right',color:'#f87171'}},['$'+fmt(d.spent)]));
+      row.appendChild(div({style:{fontFamily:'monospace',fontSize:'.78rem',textAlign:'right',color:diff>=0?'#2dd4bf':'#f87171',fontWeight:700}},[(diff>=0?'+':'−')+'$'+fmt(Math.abs(diff))]));
+      diffCard.appendChild(row);
+    });
+    const totA=chartData.reduce((s,d)=>s+d.alloc,0);
+    const totS=chartData.reduce((s,d)=>s+d.spent,0);
+    const totD=totA-totS;
+    const totRow=div({style:{display:'grid',gridTemplateColumns:'1fr 80px 80px 80px',gap:'4px',padding:'8px 0 2px',marginTop:'4px',borderTop:'1px solid #243d55'}},[]);
+    totRow.appendChild(div({style:{fontSize:'.82rem',fontWeight:700,color:'#e8f4fd'}},['合計']));
+    totRow.appendChild(div({style:{fontFamily:'monospace',fontSize:'.8rem',textAlign:'right',color:'#4fc3f7',fontWeight:700}},['$'+fmt(totA)]));
+    totRow.appendChild(div({style:{fontFamily:'monospace',fontSize:'.8rem',textAlign:'right',color:'#f87171',fontWeight:700}},['$'+fmt(totS)]));
+    totRow.appendChild(div({style:{fontFamily:'monospace',fontSize:'.8rem',textAlign:'right',color:totD>=0?'#2dd4bf':'#f87171',fontWeight:700}},[(totD>=0?'+':'−')+'$'+fmt(Math.abs(totD))]));
+    diffCard.appendChild(totRow);
+    wrap.appendChild(diffCard);
+  }
+
   // ── 截圖區塊（隱藏，Canvas 直接從資料繪製不依賴此 DOM）──
   const shotZone = div({id:'shot-zone',style:{display:'none'}},[]);
   wrap.appendChild(shotZone);
 
-  // ── 截圖分享按鈕（純 Canvas，零外部依賴）──
+  // ── 截圖分享按鈕（Canvas 自繪）──
   if(monthExps.length){
     const shareBtn=btn({style:{width:'100%',padding:'12px',marginTop:'8px',borderRadius:'10px',border:'none',background:'linear-gradient(135deg,#6366f1,#8b5cf6)',color:'#fff',fontSize:'.92rem',fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}},['📸 截圖分享']);
     shareBtn.addEventListener('click',async()=>{
       shareBtn.textContent='⏳ 截圖中…';shareBtn.disabled=true;
       try{
-        const DPR=2, W=720;
-        // ── 計算總高度 ──
-        const lineH=48, padding=28, titleH=60, rowH=52;
-        const chartH=180, tickH=20, diffHdr=36, diffRow=36, diffFoot=44;
-        const totalRows=monthExps.length;
-        const diffRows=chartData.length;
-        let H=padding+titleH+(totalRows*rowH)+20+chartH+tickH+16+diffHdr+(diffRows*diffRow)+diffFoot+padding;
+        const W=750, DPR=1.5;
+        const PAD=28, CARD_R=10;
+        const TITLE_H=60, ROW_H=58, SEP=12, CHART_H=220;
+        const DIFF_HDR=50, DIFF_ROW=42, DIFF_FOOT=80;
+        const SECTION_GAP=16;
+        // 高度加 60 確保合計不被截
+        let H = PAD + TITLE_H
+          + ROW_H*monthExps.length + SEP
+          + SECTION_GAP + CHART_H + SEP + 20
+          + SECTION_GAP + DIFF_HDR + DIFF_ROW*chartData.length + DIFF_FOOT
+          + PAD + 60;
+
         const cv=document.createElement('canvas');
         cv.width=W*DPR; cv.height=H*DPR;
         const cx=cv.getContext('2d');
         cx.scale(DPR,DPR);
-        // ── 背景 ──
         cx.fillStyle='#0d1f2d'; cx.fillRect(0,0,W,H);
-        // ── 工具函式 ──
-        function text(str,x,y,size,color,align='left',bold=false){
-          cx.font=(bold?'bold ':'')+size+'px system-ui,sans-serif';
-          cx.fillStyle=color; cx.textAlign=align;
-          cx.fillText(str,x,y);
-        }
-        function line(x1,y1,x2,y2,color,alpha=1){
-          cx.save();cx.globalAlpha=alpha;cx.strokeStyle=color;cx.lineWidth=1;
+
+        const T=(s,x,y,sz,col,align='left',bold=false)=>{
+          cx.font=(bold?'bold ':'')+sz+'px system-ui,sans-serif';
+          cx.fillStyle=col; cx.textAlign=align;
+          cx.fillText(String(s),x,y);
+        };
+        const LINE=(x1,y1,x2,y2,col,a=1)=>{
+          cx.save();cx.globalAlpha=a;cx.strokeStyle=col;cx.lineWidth=1;
           cx.beginPath();cx.moveTo(x1,y1);cx.lineTo(x2,y2);cx.stroke();cx.restore();
-        }
-        function roundRect(x,y,w,h,r,color){
-          cx.fillStyle=color;cx.beginPath();
+        };
+        const RECT=(x,y,w,h,r,col)=>{
+          cx.fillStyle=col;cx.beginPath();
           cx.moveTo(x+r,y);cx.lineTo(x+w-r,y);cx.arcTo(x+w,y,x+w,y+r,r);
           cx.lineTo(x+w,y+h-r);cx.arcTo(x+w,y+h,x+w-r,y+h,r);
           cx.lineTo(x+r,y+h);cx.arcTo(x,y+h,x,y+h-r,r);
           cx.lineTo(x,y+r);cx.arcTo(x,y,x+r,y,r);
           cx.closePath();cx.fill();
-        }
-        let y=padding;
-        // ── 標題 ──
-        text('📊  '+S.yr+'/'+S.mo+'月  支出明細',W/2,y+36,22,'#6a8fa8','center',false);
-        y+=titleH;
-        line(28,y,W-28,y,'#243d55');
-        // ── 明細列 ──
+        };
+
+        let y=PAD;
+        T('📊  '+S.yr+'/'+S.mo+'月  支出明細',W/2,y+36,22,'#6a8fa8','center');
+        y+=TITLE_H;
+        LINE(PAD,y,W-PAD,y,'#243d55');
+
         monthExps.forEach(e=>{
-          y+=8;
-          // 圓圖示背景
-          roundRect(28,y+2,38,38,19,'#152536');
-          text(e.subIcon,47,y+27,18,'#fff','center');
-          // 類別
-          text(e.catIcon+e.catName+' › '+e.subCat,80,y+18,14,'#e8f4fd','left',true);
-          text(e.date.slice(5,16)+(e.note?' · '+e.note:''),80,y+36,11,'#6a8fa8');
-          // 金額
-          text('−$'+fmt(e.amount),W-28,y+22,15,'#f87171','right',true);
-          y+=rowH;
-          line(28,y,W-28,y,'#243d55',0.5);
+          y+=10;
+          RECT(PAD,y,42,42,21,'#152536');
+          T(e.subIcon,PAD+21,y+28,18,'#fff','center');
+          T(e.catIcon+e.catName+' › '+e.subCat,PAD+52,y+18,15,'#e8f4fd','left',true);
+          T(e.date.slice(5,16)+(e.note?' · '+e.note:''),PAD+52,y+36,11,'#6a8fa8');
+          T('−$'+fmt(e.amount),W-PAD,y+22,16,'#f87171','right',true);
+          y+=ROW_H;
+          LINE(PAD,y,W-PAD,y,'#243d55',0.4);
         });
-        y+=20;
-        // ── 長條圖背景卡 ──
-        roundRect(16,y,W-32,chartH+tickH+36,10,'#1a2f42');
-        text('本月分配 vs 支出',36,y+22,12,'#6a8fa8');
+        y+=SECTION_GAP;
+
+        RECT(PAD/2,y,W-PAD,CHART_H+44,CARD_R,'#1a2f42');
+        T('本月分配 vs 支出',PAD+4,y+20,13,'#6a8fa8');
         y+=32;
         if(chartData.length){
-          const barAreaW=W-80, barAreaH=chartH-20;
-          const barX=40, barY=y, maxV=Math.max(...chartData.map(d=>Math.max(d.alloc,d.spent)),1);
-          const grpW=barAreaW/chartData.length, barW=Math.min(grpW*0.28,26);
+          const bAreaW=W-PAD*2-16, bAreaH=CHART_H-28;
+          const bX=PAD+8, bY=y+16;
+          const maxV=Math.max(...chartData.map(d=>Math.max(d.alloc,d.spent)),1);
+          const grpW=bAreaW/chartData.length, bW=Math.min(grpW*0.28,28);
           chartData.forEach((d,i)=>{
-            const gx=barX+i*grpW+grpW/2;
-            // 分配柱
-            const aH=d.alloc/maxV*barAreaH;
-            roundRect(gx-barW-2,barY+barAreaH-aH,barW,aH,3,'#4fc3f7');
-            if(d.alloc>0){text(d.alloc>=1000?Math.round(d.alloc/1000)+'k':String(d.alloc),gx-barW/2-2,barY+barAreaH-aH-5,9,'#4fc3f7','center');}
-            // 支出柱
-            const sH=d.spent/maxV*barAreaH;
+            const gx=bX+i*grpW+grpW/2;
+            const aH=d.alloc/maxV*bAreaH;
+            RECT(gx-bW-2,bY+bAreaH-aH,bW,Math.max(aH,2),3,'#4fc3f7');
+            if(d.alloc>0)T(d.alloc>=1000?Math.round(d.alloc/1000)+'k':String(d.alloc),gx-bW/2-2,bY+bAreaH-aH-5,10,'#4fc3f7','center');
+            const sH=d.spent/maxV*bAreaH;
             if(d.spent>0){
-              roundRect(gx+2,barY+barAreaH-sH,barW,sH,3,'#f87171');
-              text(d.spent>=1000?Math.round(d.spent/1000)+'k':String(d.spent),gx+barW/2+2,barY+barAreaH-sH-5,9,'#f87171','center');
+              RECT(gx+2,bY+bAreaH-sH,bW,Math.max(sH,2),3,'#f87171');
+              T(d.spent>=1000?Math.round(d.spent/1000)+'k':String(d.spent),gx+bW/2+2,bY+bAreaH-sH-5,10,'#f87171','center');
             }
-            // 類別名
-            text(d.icon,gx,barY+barAreaH+16,13,'#e8f4fd','center');
-            text(d.name,gx,barY+barAreaH+30,9,'#6a8fa8','center');
+            T(d.icon,gx,bY+bAreaH+18,14,'#e8f4fd','center');
+            T(d.name,gx,bY+bAreaH+32,10,'#6a8fa8','center');
           });
-          // 圖例
-          roundRect(W-100,y+barAreaH+38,10,10,2,'#4fc3f7');
-          text('分配',W-86,y+barAreaH+47,10,'#6a8fa8');
-          roundRect(W-60,y+barAreaH+38,10,10,2,'#f87171');
-          text('支出',W-46,y+barAreaH+47,10,'#6a8fa8');
+          RECT(W-120,y+CHART_H,12,12,2,'#4fc3f7');T('分配',W-104,y+CHART_H+10,11,'#6a8fa8');
+          RECT(W-72,y+CHART_H,12,12,2,'#f87171'); T('支出',W-56,y+CHART_H+10,11,'#6a8fa8');
         }
-        y+=chartH+tickH+16;
-        // ── 差額表背景卡 ──
-        const diffCardH=diffHdr+(diffRows*diffRow)+diffFoot;
-        roundRect(16,y,W-32,diffCardH,10,'#1a2f42');
-        text('分配 vs 支出　差額',36,y+22,12,'#6a8fa8');
-        y+=diffHdr;
-        // 表頭
-        const cols=[36,W*0.45,W*0.62,W*0.79,W-28];
-        text('類別',cols[0],y,11,'#6a8fa8');
-        text('分配', cols[2],y,11,'#6a8fa8','right');
-        text('支出', cols[3],y,11,'#6a8fa8','right');
-        text('差額', cols[4],y,11,'#6a8fa8','right');
-        y+=6; line(28,y,W-28,y,'#243d55',0.7); y+=diffRow-20;
+        y+=CHART_H+12+SECTION_GAP+20;
+
+        const diffCardH=DIFF_HDR+DIFF_ROW*chartData.length+DIFF_FOOT;
+        RECT(PAD/2,y,W-PAD,diffCardH,CARD_R,'#1a2f42');
+        T('分配 vs 支出  差額',PAD+4,y+22,13,'#6a8fa8');
+        y+=DIFF_HDR;
+        const C0=PAD+8, C1=W-PAD-8, C2=W-PAD-8-90, C3=W-PAD-8-180;
+        T('類別',C0,y,12,'#6a8fa8');
+        T('分配',C3,y,12,'#6a8fa8','right');
+        T('支出',C2,y,12,'#6a8fa8','right');
+        T('差額',C1,y,12,'#6a8fa8','right');
+        y+=6; LINE(PAD,y,W-PAD,y,'#243d55',0.7); y+=DIFF_ROW-16;
         chartData.forEach(d=>{
           const diff=d.alloc-d.spent;
-          text(d.icon+' '+d.name,cols[0],y,13,'#e8f4fd');
-          text('$'+fmt(d.alloc),cols[2],y,12,'#4fc3f7','right');
-          text('$'+fmt(d.spent), cols[3],y,12,'#f87171','right');
-          text((diff>=0?'+':'-')+'$'+fmt(Math.abs(diff)),cols[4],y,12,diff>=0?'#2dd4bf':'#f87171','right',true);
-          y+=diffRow;
-          line(28,y-16,W-28,y-16,'#243d55',0.3);
+          T(d.icon+' '+d.name,C0,y,14,'#e8f4fd');
+          T('$'+fmt(d.alloc),C3,y,13,'#4fc3f7','right');
+          T('$'+fmt(d.spent),C2,y,13,'#f87171','right');
+          T((diff>=0?'+':'−')+'$'+fmt(Math.abs(diff)),C1,y,13,diff>=0?'#2dd4bf':'#f87171','right',true);
+          y+=DIFF_ROW;
+          LINE(PAD,y-12,W-PAD,y-12,'#243d55',0.25);
         });
-        // 合計列
         const totA=chartData.reduce((s,d)=>s+d.alloc,0);
         const totS=chartData.reduce((s,d)=>s+d.spent,0);
         const totD=totA-totS;
-        line(28,y-6,W-28,y-6,'#243d55',0.8);y+=8;
-        text('合計',cols[0],y,13,'#e8f4fd',undefined,true);
-        text('$'+fmt(totA),cols[2],y,13,'#4fc3f7','right',true);
-        text('$'+fmt(totS),cols[3],y,13,'#f87171','right',true);
-        text((totD>=0?'+':'-')+'$'+fmt(Math.abs(totD)),cols[4],y,13,totD>=0?'#2dd4bf':'#f87171','right',true);
+        LINE(PAD,y-4,W-PAD,y-4,'#243d55',0.8);
+        y+=16;
+        T('合計',C0,y,15,'#e8f4fd',undefined,true);
+        T('$'+fmt(totA),C3,y,14,'#4fc3f7','right',true);
+        T('$'+fmt(totS),C2,y,14,'#f87171','right',true);
+        T((totD>=0?'+':'−')+'$'+fmt(Math.abs(totD)),C1,y,14,totD>=0?'#2dd4bf':'#f87171','right',true);
 
-        // ── 顯示預覽 Modal ──
-        const dataUrl=cv.toDataURL('image/png');
+        // ── 產生 Blob → objectURL（最可靠的儲存方式）──
         const fname='FamiFound_'+S.yr+pad(S.mo)+'.png';
 
-        // 建立全螢幕 overlay
-        const overlay=document.createElement('div');
-        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;flex-direction:column;overflow:hidden;';
+        // 先用 toDataURL 做預覽（快速），再用 toBlob 做儲存/分享
+        const dataUrl=cv.toDataURL('image/png');
+        if(!dataUrl||dataUrl==='data:,'){throw new Error('Canvas 繪製失敗');}
 
-        // 頂部按鈕列
+        // ── 預覽 Modal ──
+        const overlay=document.createElement('div');
+        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:9999;display:flex;flex-direction:column;overflow:hidden;';
+
+        // 關閉
         const topBar=document.createElement('div');
-        topBar.style.cssText='display:flex;gap:10px;padding:12px 14px;flex-shrink:0;';
+        topBar.style.cssText='display:flex;gap:8px;padding:10px 12px;flex-shrink:0;background:#111;';
 
         const closeBtn2=document.createElement('button');
         closeBtn2.textContent='✕ 關閉';
-        closeBtn2.style.cssText='flex:1;padding:11px;border-radius:9px;border:1px solid #555;background:none;color:#aaa;font-size:.9rem;font-weight:700;cursor:pointer;';
-        closeBtn2.onclick=()=>{document.body.removeChild(overlay);};
+        closeBtn2.style.cssText='flex:1;padding:10px;border-radius:8px;border:1px solid #444;background:none;color:#aaa;font-size:.88rem;font-weight:700;cursor:pointer;';
+        closeBtn2.onclick=()=>document.body.removeChild(overlay);
 
+        // 儲存按鈕（直接用 dataUrl，保持在 user gesture 內）
+        const saveBtn=document.createElement('button');
+        saveBtn.textContent='💾 儲存圖片';
+        saveBtn.style.cssText='flex:1;padding:10px;border-radius:8px;border:none;background:#2dd4bf;color:#0d1f2d;font-size:.88rem;font-weight:700;cursor:pointer;';
+        saveBtn.onclick=()=>{
+          const a=document.createElement('a');
+          a.href=dataUrl;
+          a.download=fname;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(()=>a.remove(),200);
+        };
+
+        // 分享按鈕
         const shareBtn2=document.createElement('button');
         shareBtn2.textContent='📤 分享';
-        shareBtn2.style.cssText='flex:1;padding:11px;border-radius:9px;border:none;background:#6366f1;color:#fff;font-size:.9rem;font-weight:700;cursor:pointer;';
+        shareBtn2.style.cssText='flex:1;padding:10px;border-radius:8px;border:none;background:#6366f1;color:#fff;font-size:.88rem;font-weight:700;cursor:pointer;';
         shareBtn2.onclick=async()=>{
           try{
-            const blob=await fetch(dataUrl).then(r=>r.blob());
+            // base64 → Uint8Array（同步，保持 user gesture）
+            const b64=dataUrl.split(',')[1];
+            const bin=atob(b64);
+            const arr=new Uint8Array(bin.length);
+            for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+            const blob=new Blob([arr],{type:'image/png'});
             const file=new File([blob],fname,{type:'image/png'});
             if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-              await navigator.share({files:[file],title:S.yr+'/'+S.mo+'月 支出明細'});
+              await navigator.share({files:[file],title:S.yr+'/'+S.mo+'月支出'});
             } else {
-              const a=document.createElement('a');a.href=dataUrl;a.download=fname;a.click();
+              // 沒有 share API → 開新分頁顯示圖片讓使用者長按儲存
+              const w=window.open();
+              if(w){w.document.write('<img src="'+dataUrl+'" style="max-width:100%">');w.document.close();}
+              else{const a=document.createElement('a');a.href=dataUrl;a.download=fname;a.click();}
             }
-          }catch(e){console.error(e);}
+          }catch(e){if(e.name!=='AbortError')alert('分享失敗：'+e.message);}
         };
 
         topBar.appendChild(closeBtn2);
+        topBar.appendChild(saveBtn);
         topBar.appendChild(shareBtn2);
         overlay.appendChild(topBar);
 
-        // 提示文字
         const hint=document.createElement('div');
-        hint.textContent='長按圖片可儲存至相簿';
-        hint.style.cssText='text-align:center;font-size:.75rem;color:#888;padding:0 0 8px;flex-shrink:0;';
+        hint.textContent='💾 儲存 = 存到下載資料夾　📤 分享 = 傳送給他人';
+        hint.style.cssText='text-align:center;font-size:.72rem;color:#666;padding:6px 0 4px;flex-shrink:0;background:#111;';
         overlay.appendChild(hint);
 
-        // 圖片預覽（可捲動）
         const imgWrap=document.createElement('div');
-        imgWrap.style.cssText='flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 14px 20px;';
-        const img=document.createElement('img');
-        img.src=dataUrl;
-        img.style.cssText='width:100%;border-radius:10px;display:block;';
-        imgWrap.appendChild(img);
+        imgWrap.style.cssText='flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 12px 20px;';
+        const previewImg=document.createElement('img');
+        previewImg.src=dataUrl;
+        previewImg.style.cssText='width:100%;border-radius:8px;display:block;';
+        imgWrap.appendChild(previewImg);
         overlay.appendChild(imgWrap);
-
         document.body.appendChild(overlay);
 
       }catch(err){
         console.error(err);alert('截圖失敗：'+err.message);
-      }finally{shareBtn.textContent='📸 截圖分享';shareBtn.disabled=false;}
+      }finally{
+        shareBtn.textContent='📸 截圖分享';shareBtn.disabled=false;
+      }
     });
     wrap.appendChild(shareBtn);
   }
