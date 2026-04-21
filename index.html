@@ -83,7 +83,7 @@ textarea{resize:none;height:52px;}
 <body>
 <div id="app">
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04191041</div>
+    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04211507</div>
     <div style="display:flex;align-items:center;gap:2px;">
       <button id="prev-mo" style="background:none;border:none;color:#00d4aa;font-size:1.3rem;cursor:pointer;padding:2px 8px;">‹</button>
       <span id="mo-lbl" style="font-family:monospace;font-size:.82rem;min-width:66px;text-align:center;"></span>
@@ -1180,12 +1180,19 @@ function page2(){
       try{
         const W=750, DPR=1.5;
         const PAD=28, CARD_R=10;
-        const TITLE_H=60, ROW_H=58, SEP=12, CHART_H=220;
+        const TITLE_H=60, CAT_ROW=52, SEP=12, CHART_H=220;
         const DIFF_HDR=50, DIFF_ROW=42, DIFF_FOOT=80;
         const SECTION_GAP=16;
-        // 高度加 60 確保合計不被截
+
+        // 各分類支出小計（只計有支出的）
+        const catSummary=S.categories.map(cat=>{
+          const spent=monthExps.filter(e=>e.catId===cat.id).reduce((s,e)=>s+e.amount,0);
+          const cnt=monthExps.filter(e=>e.catId===cat.id).length;
+          return {cat,spent,cnt};
+        }).filter(r=>r.spent>0);
+
         let H = PAD + TITLE_H
-          + ROW_H*monthExps.length + SEP
+          + CAT_ROW*catSummary.length + SEP
           + SECTION_GAP + CHART_H + SEP + 20
           + SECTION_GAP + DIFF_HDR + DIFF_ROW*chartData.length + DIFF_FOOT
           + PAD + 60;
@@ -1219,16 +1226,28 @@ function page2(){
         y+=TITLE_H;
         LINE(PAD,y,W-PAD,y,'#243d55');
 
-        monthExps.forEach(e=>{
-          y+=10;
-          RECT(PAD,y,42,42,21,'#152536');
-          T(e.subIcon,PAD+21,y+28,18,'#fff','center');
-          T(e.catIcon+e.catName+' › '+e.subCat,PAD+52,y+18,15,'#e8f4fd','left',true);
-          T(e.date.slice(5,16)+(e.note?' · '+e.note:''),PAD+52,y+36,11,'#6a8fa8');
-          T('−$'+fmt(e.amount),W-PAD,y+22,16,'#f87171','right',true);
-          y+=ROW_H;
+        // ── 分類支出小計（取代逐筆明細）──
+        const totalSpent=catSummary.reduce((s,r)=>s+r.spent,0);
+        catSummary.forEach(({cat,spent,cnt})=>{
+          y+=8;
+          // 圖示圓框
+          RECT(PAD,y+5,36,36,18,'#152536');
+          T(cat.icon,PAD+18,y+28,16,'#fff','center');
+          // 分類名 + 筆數
+          T(cat.name,PAD+48,y+18,16,'#e8f4fd','left',true);
+          T(cnt+'筆',PAD+48,y+35,11,'#6a8fa8');
+          // 金額 + 占比
+          const pct=totalSpent>0?Math.round(spent/totalSpent*100):0;
+          T('−$'+fmt(spent),W-PAD,y+18,17,'#f87171','right',true);
+          T(pct+'%',W-PAD,y+35,11,'#6a8fa8','right');
+          y+=CAT_ROW;
           LINE(PAD,y,W-PAD,y,'#243d55',0.4);
         });
+        // 合計列
+        y+=8;
+        T('本月共 '+monthExps.length+' 筆',PAD+4,y+18,13,'#6a8fa8');
+        T('−$'+fmt(totalSpent),W-PAD,y+18,18,'#f87171','right',true);
+        y+=36+SEP;
         y+=SECTION_GAP;
 
         RECT(PAD/2,y,W-PAD,CHART_H+44,CARD_R,'#1a2f42');
@@ -1306,26 +1325,25 @@ function page2(){
         closeBtn2.style.cssText='flex:1;padding:10px;border-radius:8px;border:1px solid #444;background:none;color:#aaa;font-size:.88rem;font-weight:700;cursor:pointer;';
         closeBtn2.onclick=()=>document.body.removeChild(overlay);
 
-        // 儲存按鈕（直接用 dataUrl，保持在 user gesture 內）
-        const saveBtn=document.createElement('button');
-        saveBtn.textContent='💾 儲存圖片';
-        saveBtn.style.cssText='flex:1;padding:10px;border-radius:8px;border:none;background:#2dd4bf;color:#0d1f2d;font-size:.88rem;font-weight:700;cursor:pointer;';
-        saveBtn.onclick=()=>{
-          const a=document.createElement('a');
-          a.href=dataUrl;
-          a.download=fname;
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(()=>a.remove(),200);
+        // 統一用開新分頁（file:// 環境最可靠）
+        const openImg=()=>{
+          const w=window.open('','_blank');
+          if(w){
+            w.document.write('<html><head><meta name="viewport" content="width=device-width"><title>'+fname+'</title></head><body style="margin:0;background:#0d1f2d;text-align:center;padding:10px;"><p style="color:#ffd166;font-size:14px;margin-bottom:8px;">長按圖片 → 儲存圖片</p><img src="'+dataUrl+'" style="max-width:100%;border-radius:8px;"></body></html>');
+            w.document.close();
+          }
         };
 
-        // 分享按鈕
+        const saveBtn=document.createElement('button');
+        saveBtn.textContent='💾 儲存';
+        saveBtn.style.cssText='flex:1;padding:10px;border-radius:8px;border:none;background:#2dd4bf;color:#0d1f2d;font-size:.88rem;font-weight:700;cursor:pointer;';
+        saveBtn.onclick=openImg;
+
         const shareBtn2=document.createElement('button');
         shareBtn2.textContent='📤 分享';
         shareBtn2.style.cssText='flex:1;padding:10px;border-radius:8px;border:none;background:#6366f1;color:#fff;font-size:.88rem;font-weight:700;cursor:pointer;';
         shareBtn2.onclick=async()=>{
           try{
-            // base64 → Uint8Array（同步，保持 user gesture）
             const b64=dataUrl.split(',')[1];
             const bin=atob(b64);
             const arr=new Uint8Array(bin.length);
@@ -1335,12 +1353,9 @@ function page2(){
             if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
               await navigator.share({files:[file],title:S.yr+'/'+S.mo+'月支出'});
             } else {
-              // 沒有 share API → 開新分頁顯示圖片讓使用者長按儲存
-              const w=window.open();
-              if(w){w.document.write('<img src="'+dataUrl+'" style="max-width:100%">');w.document.close();}
-              else{const a=document.createElement('a');a.href=dataUrl;a.download=fname;a.click();}
+              openImg();
             }
-          }catch(e){if(e.name!=='AbortError')alert('分享失敗：'+e.message);}
+          }catch(e){if(e.name!=='AbortError')openImg();}
         };
 
         topBar.appendChild(closeBtn2);
@@ -1349,7 +1364,7 @@ function page2(){
         overlay.appendChild(topBar);
 
         const hint=document.createElement('div');
-        hint.textContent='💾 儲存 = 存到下載資料夾　📤 分享 = 傳送給他人';
+        hint.textContent='儲存：長按圖片存到相簿　分享：傳給他人';
         hint.style.cssText='text-align:center;font-size:.72rem;color:#666;padding:6px 0 4px;flex-shrink:0;background:#111;';
         overlay.appendChild(hint);
 
