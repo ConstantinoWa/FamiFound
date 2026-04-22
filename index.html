@@ -85,7 +85,7 @@ textarea{resize:none;height:52px;}
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div>
-        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04221710</div>
+        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04221728</div>
         <div id="last-sync" style="font-size:.62rem;color:#4a6a82;margin-top:1px;line-height:1;"></div>
       </div>
       <span id="sync-status" style="font-size:.7rem;color:#6a8fa8;"></span>
@@ -1536,9 +1536,11 @@ document.getElementById('nav').addEventListener('click',e=>{
 // ════ 同步系統（JSONBin + QR Code）══════════════════
 const SYNC_KEYS=['members','contribs','categories','allocs','expenses','extras'];
 const JBIN='https://api.jsonbin.io/v3';
+// 內建 API Key（與 GARAGE / Shift Go 共用）— 使用者無需申請
+const JBIN_KEY='$2a$10$5TiSGlmxudpVOMrsQZLOHOCBtwnr6U6Exsy.YCm0vm0S9nJJex5jq';
 
-function getApiKey(){return LS.get('fm_syncKey','')||localStorage.getItem('garage_apiKey')||'';}
-function saveApiKey(k){LS.set('fm_syncKey',k);}
+function getApiKey(){return JBIN_KEY;}
+function saveApiKey(k){/* no-op: API Key is hardcoded */}
 function getSyncBin(){return LS.get('fm_syncBin','');}
 function saveSyncBin(id){LS.set('fm_syncBin',id);}
 function getSyncEnabled(){return LS.get('fm_syncOn',false);}
@@ -1680,17 +1682,15 @@ function openSyncModal(){
     const mkQR=(txt,fn)=>{const b=document.createElement('button');b.textContent=txt;b.style.cssText='padding:11px 4px;border-radius:9px;border:1px solid #243d55;background:#152536;color:#e8f4fd;font-size:.82rem;font-weight:600;cursor:pointer;';b.onclick=fn;return b;};
     qrRow.appendChild(mkQR('📱 顯示 QR 碼',async()=>{
       if(paired){showQR(box,key,binId);return;}
-      // 未配對：嘗試用偵測到的 API Key 自動建立
-      const detectedKey=getApiKey();
-      if(!detectedKey){statusMsg='⚠️ 請用另一支已配對的手機「顯示 QR 碼」，此手機掃描配對';draw();return;}
+      // 未配對：直接用內建 Key 建立 Bin
       statusMsg='⏳ 建立同步空間中…';draw();
       const data={};SYNC_KEYS.forEach(k=>data[k]=S[k]);data._updated=now_();
       try{
-        const r=await fetch(JBIN+'/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':detectedKey,'X-Bin-Name':'FamiFound','X-Bin-Private':'true'},body:JSON.stringify(data)});
+        const r=await fetch(JBIN+'/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':JBIN_KEY,'X-Bin-Name':'FamiFound','X-Bin-Private':'true'},body:JSON.stringify(data)});
         if(!r.ok)throw new Error('HTTP '+r.status);
         const j=await r.json();saveSyncBin(j.metadata.id);saveSyncEnabled(true);
-        statusMsg='✅ 已建立，請讓另一支手機掃 QR';draw();
-        setTimeout(()=>showQR(box,detectedKey,j.metadata.id),500);
+        statusMsg='✅ 建立成功！讓另一支手機掃 QR 配對';draw();
+        setTimeout(()=>showQR(box,JBIN_KEY,j.metadata.id),300);
       }catch(e){statusMsg='❌ '+e.message;draw();}
     }));
     qrRow.appendChild(mkQR('📷 掃描 QR 碼',()=>startQRScan(box,draw,statusMsg,setStatus)));
@@ -1705,14 +1705,15 @@ function openSyncModal(){
       try{code=await navigator.clipboard.readText();}catch(e){}
       if(!code)code=prompt('貼上從另一支手機複製的連線碼：','');
       if(!code)return;
-      try{
-        const cfg=JSON.parse(code);
-        if(cfg.k&&cfg.b){
-          saveApiKey(cfg.k);saveSyncBin(cfg.b);saveSyncEnabled(true);
-          setStatus('✅ 配對成功！下載資料中…');
-          syncPull().then(r=>{setStatus(r.msg);if(r.ok)render();});
-        } else setStatus('❌ 連線碼格式錯誤');
-      }catch(e){setStatus('❌ 連線碼格式錯誤');}
+      code=code.trim();
+      let binVal='';
+      // 相容新舊格式
+      try{const parsed=JSON.parse(code);if(parsed.b)binVal=parsed.b;}catch(e){if(code.length>=20)binVal=code;}
+      if(binVal){
+        saveSyncBin(binVal);saveSyncEnabled(true);
+        setStatus('✅ 配對成功！下載資料中…');
+        syncPull().then(r=>{setStatus(r.msg);if(r.ok)render();});
+      } else setStatus('❌ 連線碼格式錯誤');
     };
     box.appendChild(pasteBtn);
 
@@ -1765,7 +1766,8 @@ function loadQRLib(){
 }
 
 async function showQR(box,key,binId){
-  const data=JSON.stringify({k:key,b:binId});
+  // QR 只傳 Bin ID（Key 已內建在 App 中）
+  const data=binId;
 
   // 建立 overlay
   const d=document.createElement('div');
@@ -1788,14 +1790,12 @@ async function showQR(box,key,binId){
   copyBtn.textContent='📋 複製連線碼';
   copyBtn.style.cssText='padding:8px 16px;border-radius:7px;border:1px solid #243d55;background:#152536;color:#00d4aa;font-size:.78rem;cursor:pointer;margin-bottom:10px;';
   copyBtn.onclick=async()=>{
-    const code=JSON.stringify({k:key,b:binId});
     try{
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(binId);
       copyBtn.textContent='✓ 已複製';
       setTimeout(()=>copyBtn.textContent='📋 複製連線碼',1500);
     }catch(e){
-      // 備援：選取文字
-      textBox.textContent=code;
+      textBox.textContent=binId;
       const range=document.createRange();range.selectNode(textBox);
       window.getSelection().removeAllRanges();window.getSelection().addRange(range);
       copyBtn.textContent='✓ 已選取，請手動複製';
@@ -1866,16 +1866,22 @@ async function startQRScan(box,draw,statusMsg,setStatus){
         const img=cx2.getImageData(0,0,cv2.width,cv2.height);
         const code=jsQR(img.data,img.width,img.height);
         if(code){
+          let binVal='';
+          // 相容：舊格式是 JSON，新格式直接是 Bin ID
           try{
-            const cfg2=JSON.parse(code.data);
-            if(cfg2.k&&cfg2.b){
-              scanning=false;stream.getTracks().forEach(t=>t.stop());d.remove();
-              saveApiKey(cfg2.k);saveSyncBin(cfg2.b);saveSyncEnabled(true);
-              setStatus('✅ 配對成功！正在下載資料…');
-              syncPull().then(r=>{setStatus(r.msg);if(r.ok)render();});
-              return;
-            }
-          }catch(e){}
+            const parsed=JSON.parse(code.data);
+            if(parsed.b)binVal=parsed.b;
+          }catch(e){
+            // 純文字 Bin ID
+            if(code.data&&code.data.length>=20)binVal=code.data.trim();
+          }
+          if(binVal){
+            scanning=false;stream.getTracks().forEach(t=>t.stop());d.remove();
+            saveSyncBin(binVal);saveSyncEnabled(true);
+            setStatus('✅ 配對成功！正在下載資料…');
+            syncPull().then(r=>{setStatus(r.msg);if(r.ok)render();});
+            return;
+          }
           hint.textContent='⚠️ 無效的 QR 碼，請再試';
         }
       }
