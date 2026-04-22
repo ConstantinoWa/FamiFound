@@ -85,7 +85,7 @@ textarea{resize:none;height:52px;}
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div>
-        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04221728</div>
+        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04222042</div>
         <div id="last-sync" style="font-size:.62rem;color:#4a6a82;margin-top:1px;line-height:1;"></div>
       </div>
       <span id="sync-status" style="font-size:.7rem;color:#6a8fa8;"></span>
@@ -1095,22 +1095,61 @@ function page2(){
     const mc=card(null,[]);
     const sortRow=div({style:{display:'flex',gap:'6px',marginBottom:'12px',alignItems:'center'}},[]);
 
-    // 日期切換鈕（一顆，箭頭指示方向）
-    const dateBtn=btn({style:{padding:'6px 12px',borderRadius:'20px',border:'1.5px solid '+(S._expSort!=='cat'?'#00d4aa':'#243d55'),background:S._expSort!=='cat'?'rgba(0,212,170,.1)':'none',color:S._expSort!=='cat'?'#00d4aa':'#6a8fa8',fontSize:'.75rem',fontWeight:S._expSort!=='cat'?700:400,cursor:'pointer',whiteSpace:'nowrap'},onClick:()=>{
+    const mkIcon=(icon,active,onclick)=>btn({style:{
+      width:'38px',height:'34px',borderRadius:'20px',
+      border:'1.5px solid '+(active?'#00d4aa':'#243d55'),
+      background:active?'rgba(0,212,170,.1)':'none',
+      color:active?'#00d4aa':'#6a8fa8',
+      fontSize:'1rem',cursor:'pointer',padding:0,
+      display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0
+    },onClick:onclick},[icon]);
+
+    // 日期鈕（圖示，點擊切排序方向）
+    const dateActive=S._expSort!=='cat';
+    const dateIcon='📅'+(S._expSort==='date_asc'?'↑':S._expSort==='date_desc'?'↓':'');
+    sortRow.appendChild(mkIcon(dateIcon,dateActive,()=>{
       if(S._expSort==='cat')S._expSort='date_desc';
       else S._expSort=S._expSort==='date_desc'?'date_asc':'date_desc';
       render();
-    }},['📅 日期 '+(S._expSort==='date_asc'?'↑':'↓')]);
-    sortRow.appendChild(dateBtn);
+    }));
 
-    // 分類鈕
-    const on=S._expSort==='cat';
-    sortRow.appendChild(btn({style:{padding:'6px 12px',borderRadius:'20px',border:'1.5px solid '+(on?'#00d4aa':'#243d55'),background:on?'rgba(0,212,170,.1)':'none',color:on?'#00d4aa':'#6a8fa8',fontSize:'.75rem',fontWeight:on?700:400,cursor:'pointer',whiteSpace:'nowrap'},onClick:()=>{S._expSort='cat';render();}},['🗂 分類']));
+    // 分類鈕（圖示）
+    sortRow.appendChild(mkIcon('🗂',S._expSort==='cat',()=>{S._expSort='cat';render();}));
+
+    // 簡易/詳細切換
+    const simple=S._expSimple;
+    sortRow.appendChild(mkIcon(simple?'📋':'📊',simple,()=>{S._expSimple=!simple;render();}));
 
     // 筆數小計
     const tot=monthExps.reduce((s,e)=>s+e.amount,0);
     sortRow.appendChild(div({style:{marginLeft:'auto',fontSize:'.75rem',color:'#6a8fa8',whiteSpace:'nowrap'}},['共 '+monthExps.length+' 筆　$'+fmt(tot)]));
     mc.appendChild(sortRow);
+
+    // ── 簡易模式：只顯示各分類合計 ──
+    if(simple){
+      const sums=S.categories.map(cat=>{
+        const items=monthExps.filter(e=>e.catId===cat.id);
+        return {cat,spent:items.reduce((s,e)=>s+e.amount,0),cnt:items.length};
+      }).filter(r=>r.spent>0).sort((a,b)=>b.spent-a.spent);
+
+      if(sums.length===0){
+        mc.appendChild(div({style:{textAlign:'center',padding:'20px',color:'#6a8fa8',fontSize:'.85rem'}},['本月尚無支出']));
+      } else {
+        sums.forEach(({cat,spent,cnt})=>{
+          const pct=tot>0?Math.round(spent/tot*100):0;
+          const row=div({style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 4px',borderBottom:'1px solid rgba(36,61,85,.4)'}},[]);
+          row.appendChild(div({style:{width:'36px',height:'36px',borderRadius:'50%',background:'#152536',border:'1px solid #243d55',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.1rem',flexShrink:0}},[cat.icon]));
+          const mid=div({style:{flex:1,minWidth:0}},[]);
+          mid.appendChild(div({style:{fontSize:'.92rem',fontWeight:600,color:'#e8f4fd'}},[cat.name]));
+          mid.appendChild(div({style:{fontSize:'.7rem',color:'#6a8fa8',marginTop:'2px'}},[cnt+' 筆　'+pct+'%']));
+          row.appendChild(mid);
+          row.appendChild(div({style:{fontFamily:'monospace',fontWeight:700,color:'#f87171',fontSize:'.95rem',flexShrink:0}},['−$'+fmt(spent)]));
+          mc.appendChild(row);
+        });
+      }
+      wrap.appendChild(mc);
+    } else {
+    // ── 詳細模式：完整明細 ──
 
     // 明細列
     sortedExps().forEach((e,i,arr)=>{
@@ -1148,6 +1187,7 @@ function page2(){
       mc.appendChild(r);
     });
     wrap.appendChild(mc);
+    } // 詳細模式結束
   }
 
   // ── 長條圖 ──
@@ -1184,8 +1224,8 @@ function page2(){
   const shotZone = div({id:'shot-zone',style:{display:'none'}},[]);
   wrap.appendChild(shotZone);
 
-  // ── 截圖分享按鈕（Canvas 自繪）──
-  if(monthExps.length){
+  // ── 截圖分享按鈕（可於設定頁開關）──
+  if(LS.get('fm_showShot',false)&&monthExps.length){
     const shareBtn=btn({style:{width:'100%',padding:'12px',marginTop:'8px',borderRadius:'10px',border:'none',background:'linear-gradient(135deg,#6366f1,#8b5cf6)',color:'#fff',fontSize:'.92rem',fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}},['📸 截圖分享']);
     shareBtn.addEventListener('click',async()=>{
       shareBtn.textContent='⏳ 截圖中…';shareBtn.disabled=true;
@@ -1747,6 +1787,32 @@ function openSyncModal(){
       rst.onclick=()=>{LS.set('fm_syncKey','');LS.set('fm_syncBin','');LS.set('fm_syncOn',false);setStatus('已解除配對');};
       box.appendChild(rst);
     }
+
+    // ── 隱藏功能區 ──
+    const hidLbl=document.createElement('div');
+    hidLbl.style.cssText='font-size:.7rem;color:#6a8fa8;letter-spacing:1.5px;margin:18px 0 10px;text-transform:uppercase;';
+    hidLbl.textContent='隱藏功能';
+    box.appendChild(hidLbl);
+
+    // 可切換的隱藏功能清單
+    const HIDDEN_FEATURES=[
+      {key:'fm_showShot',icon:'📸',name:'截圖分享',desc:'產生月度支出圖片'}
+    ];
+
+    HIDDEN_FEATURES.forEach(f=>{
+      const on=LS.get(f.key,false);
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;background:#152536;border-radius:9px;margin-bottom:6px;';
+      row.innerHTML='<div style="font-size:1.1rem;flex-shrink:0;">'+f.icon+'</div>'+
+        '<div style="flex:1;min-width:0;"><div style="font-size:.85rem;font-weight:600;">'+f.name+'</div>'+
+        '<div style="font-size:.7rem;color:#6a8fa8;margin-top:2px;">'+f.desc+'</div></div>';
+      const sw=document.createElement('button');
+      sw.textContent=on?'開':'關';
+      sw.style.cssText='padding:5px 16px;border-radius:20px;border:none;background:'+(on?'#00d4aa':'#243d55')+';color:'+(on?'#0d1f2d':'#6a8fa8')+';font-weight:700;cursor:pointer;font-size:.78rem;flex-shrink:0;';
+      sw.onclick=()=>{LS.set(f.key,!on);draw();render();};
+      row.appendChild(sw);
+      box.appendChild(row);
+    });
   };
 
   const setStatus=(msg)=>{statusMsg=msg;draw();};
