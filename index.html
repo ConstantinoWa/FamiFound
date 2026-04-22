@@ -83,7 +83,11 @@ textarea{resize:none;height:52px;}
 <body>
 <div id="app">
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04211507</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04220814</div>
+      <span id="sync-status" style="font-size:.7rem;color:#6a8fa8;"></span>
+      <button id="sync-btn" style="background:none;border:none;color:#6a8fa8;font-size:1.15rem;cursor:pointer;padding:2px 4px;line-height:1;" title="同步設定">⚙️</button>
+    </div>
     <div style="display:flex;align-items:center;gap:2px;">
       <button id="prev-mo" style="background:none;border:none;color:#00d4aa;font-size:1.3rem;cursor:pointer;padding:2px 8px;">‹</button>
       <span id="mo-lbl" style="font-family:monospace;font-size:.82rem;min-width:66px;text-align:center;"></span>
@@ -149,6 +153,8 @@ function save(key,val){
   const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras',personal:'pers'};
   S[key]=val;
   LS.set('fm_'+(KM[key]||key),val);
+  // 自動推送（個人資料不同步）
+  if(key!=='personal'&&typeof schedulePush==='function')schedulePush();
 }
 function mkey(){return S.yr+'-'+pad(S.mo);}
 // 是否為當月（唯讀判斷）
@@ -1521,8 +1527,279 @@ document.getElementById('nav').addEventListener('click',e=>{
   if(t){S.tab=parseInt(t.dataset.tab);S.armedDel={};render(true);}
 });
 
+// ════ 同步系統（JSONBin + QR Code）══════════════════
+const SYNC_KEYS=['members','contribs','categories','allocs','expenses','extras'];
+const JBIN='https://api.jsonbin.io/v3';
+
+function getApiKey(){return LS.get('fm_syncKey','')||localStorage.getItem('garage_apiKey')||'';}
+function saveApiKey(k){LS.set('fm_syncKey',k);}
+function getSyncBin(){return LS.get('fm_syncBin','');}
+function saveSyncBin(id){LS.set('fm_syncBin',id);}
+function getSyncEnabled(){return LS.get('fm_syncOn',false);}
+function saveSyncEnabled(v){LS.set('fm_syncOn',v);}
+
+async function syncPush(){
+  const key=getApiKey(),binId=getSyncBin();
+  if(!key)return{ok:false,msg:'請先設定'};
+  setSyncIndicator('pushing');
+  const data={};SYNC_KEYS.forEach(k=>data[k]=S[k]);data._updated=now_();
+  try{
+    if(binId){
+      const r=await fetch(JBIN+'/b/'+binId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':key,'X-Bin-Versioning':'false'},body:JSON.stringify(data)});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+    }else{
+      const r=await fetch(JBIN+'/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':key,'X-Bin-Name':'FamiFound','X-Bin-Private':'true'},body:JSON.stringify(data)});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const j=await r.json();saveSyncBin(j.metadata.id);
+    }
+    setSyncIndicator('ok');
+    return{ok:true,msg:'✅ 上傳成功 '+now_().slice(5,16)};
+  }catch(e){setSyncIndicator('err');return{ok:false,msg:'❌ '+e.message};}
+}
+async function syncPull(){
+  const key=getApiKey(),binId=getSyncBin();
+  if(!key||!binId)return{ok:false,msg:'尚未配對'};
+  setSyncIndicator('pulling');
+  try{
+    const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'}});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
+    SYNC_KEYS.forEach(k=>{if(data[k]!==undefined){S[k]=data[k];LS.set('fm_'+KM[k],data[k]);}});
+    setSyncIndicator('ok');
+    return{ok:true,msg:'✅ 已同步 '+(data._updated||'').slice(5,16)};
+  }catch(e){setSyncIndicator('err');return{ok:false,msg:'❌ '+e.message};}
+}
+
+// 更新 header 狀態指示
+function setSyncIndicator(state){
+  const el=document.getElementById('sync-status');if(!el)return;
+  const map={
+    pushing:{txt:'⬆ 同步中',col:'#ffd166'},
+    pulling:{txt:'⬇ 同步中',col:'#ffd166'},
+    ok:{txt:'✓ 已同步',col:'#00d4aa'},
+    err:{txt:'✗ 同步失敗',col:'#f87171'},
+    idle:{txt:'',col:'#6a8fa8'}
+  };
+  const s=map[state]||map.idle;
+  el.textContent=s.txt;el.style.color=s.col;
+  if(state==='ok'||state==='err'){
+    setTimeout(()=>{const e2=document.getElementById('sync-status');if(e2&&e2.textContent===s.txt)e2.textContent='';},3000);
+  }
+}
+
+// ── 載入 jsQR（掃碼用）──────────────────────────────
+function loadJsQR(){
+  return new Promise((res,rej)=>{
+    if(window.jsQR){res();return;}
+    const s=document.createElement('script');
+    s.src='https://unpkg.com/jsqr@1.4.0/dist/jsQR.js';
+    s.onload=res;s.onerror=()=>rej(new Error('無法載入掃碼套件，請確認網路'));
+    document.head.appendChild(s);
+  });
+}
+
+// ── QR 設定 Modal ───────────────────────────────────
+function openSyncModal(){
+  let statusMsg='';
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;';
+  const box=document.createElement('div');
+  box.style.cssText='background:#1a2f42;border-radius:14px;padding:20px;max-width:480px;margin:0 auto;font-family:system-ui,sans-serif;color:#e8f4fd;';
+
+  const draw=()=>{
+    box.innerHTML='';
+    const key=getApiKey(),binId=getSyncBin(),enabled=getSyncEnabled();
+    const paired=key&&binId;
+
+    // ── Header（類似 GARAGE）──
+    const hdr=document.createElement('div');
+    hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #243d55;';
+    hdr.innerHTML='<div><div style="font-size:1.05rem;font-weight:700;letter-spacing:.5px;">⚙️ 設定</div><div style="font-size:.72rem;color:#6a8fa8;margin-top:2px;">家庭資料雲端同步</div></div>';
+    const cls=document.createElement('button');
+    cls.textContent='✕';cls.style.cssText='background:none;border:none;color:#6a8fa8;font-size:1.3rem;cursor:pointer;padding:4px 8px;';
+    cls.onclick=()=>document.body.removeChild(ov);
+    hdr.appendChild(cls);box.appendChild(hdr);
+
+    // ── 狀態列（header 右邊的 ✓ 已同步 風格）──
+    const statusBar=document.createElement('div');
+    statusBar.style.cssText='display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;margin-bottom:16px;font-size:.8rem;'+
+      (paired?'background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.25);color:#00d4aa;':'background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.2);color:#ffd166;');
+    statusBar.innerHTML=(paired?'<span style="font-size:1rem;">✓</span> 已同步　<span style="color:#6a8fa8;font-size:.72rem;margin-left:auto;">自動推送 + 每 15 秒拉取</span>':'<span style="font-size:1rem;">⚠</span> 尚未配對');
+    box.appendChild(statusBar);
+
+    // 狀態訊息
+    if(statusMsg){
+      const st=document.createElement('div');
+      st.style.cssText='font-size:.78rem;text-align:center;margin-bottom:12px;padding:8px;border-radius:7px;background:rgba(0,0,0,.25);color:'+(statusMsg.includes('✅')||statusMsg.includes('成功')?'#00d4aa':statusMsg.includes('⏳')?'#ffd166':'#f87171');
+      st.textContent=statusMsg;box.appendChild(st);
+    }
+
+    // ── QR 配對區 ──
+    const qrLbl=document.createElement('div');
+    qrLbl.style.cssText='font-size:.7rem;color:#6a8fa8;letter-spacing:1.5px;margin-bottom:10px;text-transform:uppercase;';
+    qrLbl.textContent='快速配對';
+    box.appendChild(qrLbl);
+
+    const qrRow=document.createElement('div');qrRow.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;';
+    const mkQR=(txt,fn)=>{const b=document.createElement('button');b.textContent=txt;b.style.cssText='padding:11px 4px;border-radius:9px;border:1px solid #243d55;background:#152536;color:#e8f4fd;font-size:.82rem;font-weight:600;cursor:pointer;';b.onclick=fn;return b;};
+    qrRow.appendChild(mkQR('📱 顯示 QR 碼',async()=>{
+      if(paired){showQR(box,key,binId);return;}
+      // 未配對：嘗試用偵測到的 API Key 自動建立
+      const detectedKey=getApiKey();
+      if(!detectedKey){statusMsg='⚠️ 請用另一支已配對的手機「顯示 QR 碼」，此手機掃描配對';draw();return;}
+      statusMsg='⏳ 建立同步空間中…';draw();
+      const data={};SYNC_KEYS.forEach(k=>data[k]=S[k]);data._updated=now_();
+      try{
+        const r=await fetch(JBIN+'/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':detectedKey,'X-Bin-Name':'FamiFound','X-Bin-Private':'true'},body:JSON.stringify(data)});
+        if(!r.ok)throw new Error('HTTP '+r.status);
+        const j=await r.json();saveSyncBin(j.metadata.id);saveSyncEnabled(true);
+        statusMsg='✅ 已建立，請讓另一支手機掃 QR';draw();
+        setTimeout(()=>showQR(box,detectedKey,j.metadata.id),500);
+      }catch(e){statusMsg='❌ '+e.message;draw();}
+    }));
+    qrRow.appendChild(mkQR('📷 掃描 QR 碼',()=>startQRScan(box,draw,statusMsg,setStatus)));
+    box.appendChild(qrRow);
+
+    // ── 資料管理區 ──
+    const dmLbl=document.createElement('div');
+    dmLbl.style.cssText='font-size:.7rem;color:#6a8fa8;letter-spacing:1.5px;margin-bottom:10px;text-transform:uppercase;';
+    dmLbl.textContent='資料管理';
+    box.appendChild(dmLbl);
+
+    const dmRow=document.createElement('div');dmRow.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;';
+    const mkDM=(txt,col,fn)=>{const b=document.createElement('button');b.textContent=txt;b.style.cssText='padding:10px 4px;border-radius:9px;border:1px solid '+col+';background:transparent;color:'+col+';font-size:.82rem;font-weight:600;cursor:pointer;';b.onclick=fn;return b;};
+    dmRow.appendChild(mkDM('⬆ 推送到雲端','#00d4aa',async()=>{setStatus('⏳ 上傳中…');const r=await syncPush();setStatus(r.msg);}));
+    dmRow.appendChild(mkDM('⬇ 從雲端拉取','#4fc3f7',async()=>{setStatus('⏳ 下載中…');const r=await syncPull();setStatus(r.msg);if(r.ok){render();document.body.removeChild(ov);}}));
+    box.appendChild(dmRow);
+
+    // ── 自動同步開關 ──
+    const tog=document.createElement('div');
+    tog.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px;background:#152536;border-radius:9px;margin-bottom:10px;';
+    tog.innerHTML='<div><div style="font-size:.85rem;font-weight:600;">自動同步</div><div style="font-size:.72rem;color:#6a8fa8;margin-top:2px;">開啟 App + 改資料時自動同步</div></div>';
+    const sw=document.createElement('button');
+    sw.textContent=enabled?'開':'關';
+    sw.style.cssText='padding:6px 20px;border-radius:20px;border:none;background:'+(enabled?'#00d4aa':'#243d55')+';color:'+(enabled?'#0d1f2d':'#6a8fa8')+';font-weight:700;cursor:pointer;font-size:.85rem;flex-shrink:0;';
+    sw.onclick=()=>{saveSyncEnabled(!enabled);draw();};
+    tog.appendChild(sw);box.appendChild(tog);
+
+    // ── 解除配對（底部小字）──
+    if(paired){
+      const rst=document.createElement('button');
+      rst.textContent='解除配對';
+      rst.style.cssText='width:100%;padding:8px;border-radius:7px;border:1px solid #243d55;background:none;color:#6a8fa8;font-size:.72rem;cursor:pointer;';
+      rst.onclick=()=>{LS.set('fm_syncKey','');LS.set('fm_syncBin','');LS.set('fm_syncOn',false);setStatus('已解除配對');};
+      box.appendChild(rst);
+    }
+  };
+
+  const setStatus=(msg)=>{statusMsg=msg;draw();};
+
+  draw();ov.appendChild(box);document.body.appendChild(ov);
+}
+
+function showQR(box,key,binId){
+  const data=JSON.stringify({k:key,b:binId});
+  const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=250x250&data='+encodeURIComponent(data);
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+  d.innerHTML='<div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;"><img src="'+qrUrl+'" width="250" height="250" style="display:block;"></div>'+
+    '<div style="color:#ffd166;font-size:.85rem;margin-bottom:14px;text-align:center;">讓另一支手機掃描此 QR 碼</div>'+
+    '<button onclick="this.parentNode.remove()" style="padding:10px 28px;border-radius:9px;border:none;background:#243d55;color:#e8f4fd;font-size:.9rem;font-weight:700;cursor:pointer;">關閉</button>';
+  document.body.appendChild(d);
+}
+
+// ── 掃描 QR（鏡頭）──────────────────────────────────
+async function startQRScan(box,draw,statusMsg,setStatus){
+  try{
+    await loadJsQR();
+    setStatus('⏳ 開啟相機中…');
+
+    // 建立掃描覆蓋層
+    const d=document.createElement('div');
+    d.style.cssText='position:fixed;inset:0;background:#000;z-index:10000;display:flex;flex-direction:column;align-items:center;';
+    const vid=document.createElement('video');
+    vid.style.cssText='width:100%;max-height:70vh;object-fit:cover;';
+    vid.setAttribute('playsinline','');
+    const hint=document.createElement('div');
+    hint.style.cssText='color:#ffd166;font-size:.85rem;padding:10px;text-align:center;';
+    hint.textContent='將 QR 碼對準框內';
+    const stopBtn=document.createElement('button');
+    stopBtn.textContent='取消';stopBtn.style.cssText='margin-top:10px;padding:10px 28px;border-radius:9px;border:none;background:#243d55;color:#e8f4fd;font-size:.9rem;cursor:pointer;';
+    d.appendChild(vid);d.appendChild(hint);d.appendChild(stopBtn);
+    document.body.appendChild(d);
+
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    vid.srcObject=stream;
+    await vid.play();
+
+    const cv2=document.createElement('canvas');
+    const cx2=cv2.getContext('2d');
+    let scanning=true;
+
+    stopBtn.onclick=()=>{scanning=false;stream.getTracks().forEach(t=>t.stop());d.remove();setStatus('');};
+
+    const tick=()=>{
+      if(!scanning)return;
+      if(vid.readyState===vid.HAVE_ENOUGH_DATA){
+        cv2.width=vid.videoWidth;cv2.height=vid.videoHeight;
+        cx2.drawImage(vid,0,0);
+        const img=cx2.getImageData(0,0,cv2.width,cv2.height);
+        const code=jsQR(img.data,img.width,img.height);
+        if(code){
+          try{
+            const cfg2=JSON.parse(code.data);
+            if(cfg2.k&&cfg2.b){
+              scanning=false;stream.getTracks().forEach(t=>t.stop());d.remove();
+              saveApiKey(cfg2.k);saveSyncBin(cfg2.b);saveSyncEnabled(true);
+              setStatus('✅ 配對成功！正在下載資料…');
+              syncPull().then(r=>{setStatus(r.msg);if(r.ok)render();});
+              return;
+            }
+          }catch(e){}
+          hint.textContent='⚠️ 無效的 QR 碼，請再試';
+        }
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }catch(e){setStatus('❌ '+e.message);}
+}
+
+// ── 手動輸入 Key（第一次設定）──────────────────────
+function showManualInput(box,draw,setStatus){
+  const d=document.createElement('div');
+  d.style.cssText='background:#152536;border-radius:10px;padding:14px;margin-top:0;';
+  d.innerHTML='<div style="font-size:.78rem;color:#6a8fa8;margin-bottom:8px;">JSONBin Master Key（到 <a href="https://jsonbin.io" target="_blank" style="color:#00d4aa">jsonbin.io</a> 取得）</div>';
+  const inp=document.createElement('input');
+  inp.type='text';inp.placeholder='$2b$10$xxxxxxxx';
+  inp.style.cssText='width:100%;background:#0d1f2d;border:1px solid #243d55;border-radius:8px;color:#e8f4fd;padding:9px 12px;font-size:.85rem;font-family:inherit;outline:none;margin-bottom:8px;';
+  const rowBtn=document.createElement('div');rowBtn.style.cssText='display:flex;gap:8px;';
+  const okBtn=document.createElement('button');
+  okBtn.textContent='確認連接';okBtn.style.cssText='flex:1;padding:10px;border-radius:8px;border:none;background:#00d4aa;color:#0d1f2d;font-weight:700;cursor:pointer;font-size:.88rem;';
+  okBtn.onclick=async()=>{
+    const k=inp.value.trim();if(!k)return;
+    saveApiKey(k);setStatus('⏳ 建立同步空間…');
+    // 自動建立 Bin
+    const data={};SYNC_KEYS.forEach(key=>data[key]=S[key]);data._updated=now_();
+    try{
+      const r=await fetch(JBIN+'/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':k,'X-Bin-Name':'FamiFound','X-Bin-Private':'true'},body:JSON.stringify(data)});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const j=await r.json();saveSyncBin(j.metadata.id);saveSyncEnabled(true);
+      setStatus('✅ 設定完成！讓對方掃 QR 碼配對');
+    }catch(e){setStatus('❌ '+e.message);}
+  };
+  const cancelBtn=document.createElement('button');
+  cancelBtn.textContent='取消';cancelBtn.style.cssText='padding:10px 16px;border-radius:8px;border:1px solid #243d55;background:none;color:#6a8fa8;cursor:pointer;font-size:.88rem;';
+  cancelBtn.onclick=draw;
+  rowBtn.appendChild(okBtn);rowBtn.appendChild(cancelBtn);
+  d.appendChild(inp);d.appendChild(rowBtn);
+  box.appendChild(d);
+  setTimeout(()=>inp.focus(),50);
+}
+
 // ════ 啟動 ══════════════════════════════════════════════
-// 修正手機瀏覽器 100vh 問題（底部工具列會遮住導航列）
+// 修正手機瀏覽器 100vh 問題
 function fixVH(){
   const vh=window.innerHeight*0.01;
   document.documentElement.style.setProperty('--vh',''+vh+'px');
@@ -1530,7 +1807,62 @@ function fixVH(){
 }
 window.addEventListener('resize',fixVH);
 fixVH();
-render();
+
+// 齒輪按鈕
+document.getElementById('sync-btn').addEventListener('click',openSyncModal);
+
+// ── 自動同步引擎 ───────────────────────────────────
+let _pushTimer=null, _pullTimer=null, _syncing=false;
+let _lastUpdated=''; // 記錄最後看到的 _updated，只在不同時才 render
+
+// 改資料時 debounced push（使用者停手 1.5 秒後推送）
+function schedulePush(){
+  if(!getSyncEnabled()||!getApiKey()||!getSyncBin())return;
+  clearTimeout(_pushTimer);
+  _pushTimer=setTimeout(async()=>{
+    if(_syncing)return;
+    _syncing=true;
+    await syncPush();
+    _syncing=false;
+  },1500);
+}
+
+// 定期 pull（App 開著時每 15 秒檢查一次對方有沒有更新）
+async function autoPull(){
+  if(!getSyncEnabled()||!getApiKey()||!getSyncBin())return;
+  if(_syncing||document.hidden)return;
+  _syncing=true;
+  try{
+    const key=getApiKey(),binId=getSyncBin();
+    const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'}});
+    if(r.ok){
+      const data=await r.json();
+      // 只有當雲端 _updated 比本機看過的新才套用
+      if(data._updated&&data._updated!==_lastUpdated){
+        _lastUpdated=data._updated;
+        const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
+        SYNC_KEYS.forEach(k=>{if(data[k]!==undefined){S[k]=data[k];LS.set('fm_'+KM[k],data[k]);}});
+        render();
+      }
+    }
+  }catch(e){}
+  _syncing=false;
+}
+
+// 視窗變可見時立即同步一次（從背景回來）
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoPull();});
+
+// 每 15 秒定期檢查
+_pullTimer=setInterval(autoPull,15000);
+
+// 啟動：先 pull 一次再 render
+(async()=>{
+  if(getSyncEnabled()&&getApiKey()&&getSyncBin()){
+    const r=await syncPull();
+    if(r.ok){_lastUpdated=now_();render();return;}
+  }
+  render();
+})();
 </script>
 </body>
 </html>
