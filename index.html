@@ -84,7 +84,10 @@ textarea{resize:none;height:52px;}
 <div id="app">
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <div style="display:flex;align-items:center;gap:8px;">
-      <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04220814</div>
+      <div>
+        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04221539</div>
+        <div id="last-sync" style="font-size:.62rem;color:#4a6a82;margin-top:1px;line-height:1;"></div>
+      </div>
       <span id="sync-status" style="font-size:.7rem;color:#6a8fa8;"></span>
       <button id="sync-btn" style="background:none;border:none;color:#6a8fa8;font-size:1.15rem;cursor:pointer;padding:2px 4px;line-height:1;" title="同步設定">⚙️</button>
     </div>
@@ -932,7 +935,10 @@ function page2(){
     S.ledgerType=editRec.subCat;
     S._editExpIdPrev=S._editExpId;
   }
-  const fc=card(editRec?'✏️ 修改記錄':'新增支出',[]);
+  const fc=card(null,[]);
+  // 自訂大標題樣式
+  const titleEl=div({style:{fontSize:'1rem',fontWeight:700,color:editRec?'#ffd166':'#00d4aa',letterSpacing:'.5px',marginBottom:'14px',paddingBottom:'10px',borderBottom:'1px solid #243d55'}},[editRec?'✏️ 修改記錄':'📝 新增支出']);
+  fc.appendChild(titleEl);
   if(editRec){
     fc.style.border='1.5px solid #ffd166';
   }
@@ -1538,6 +1544,32 @@ function saveSyncBin(id){LS.set('fm_syncBin',id);}
 function getSyncEnabled(){return LS.get('fm_syncOn',false);}
 function saveSyncEnabled(v){LS.set('fm_syncOn',v);}
 
+// 同步記錄
+function todayKey(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function recordSync(){
+  const t=now_(); // YYYY-MM-DD HH:MM
+  LS.set('fm_lastSync',t);
+  // 今日計數
+  const today=todayKey();
+  const cnt=LS.get('fm_syncCnt',{date:'',n:0});
+  if(cnt.date===today)cnt.n++;else{cnt.date=today;cnt.n=1;}
+  LS.set('fm_syncCnt',cnt);
+  updateLastSyncLabel();
+}
+function getLastSync(){return LS.get('fm_lastSync','');}
+function getTodaySyncCount(){
+  const c=LS.get('fm_syncCnt',{date:'',n:0});
+  return c.date===todayKey()?c.n:0;
+}
+function updateLastSyncLabel(){
+  const el=document.getElementById('last-sync');if(!el)return;
+  const t=getLastSync();
+  if(!t){el.textContent='';return;}
+  // t = "YYYY-MM-DD HH:MM" → 轉成 M/D HH:MM
+  const m=t.match(/^\d{4}-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
+  if(m)el.textContent='於 '+parseInt(m[1])+'/'+parseInt(m[2])+' '+m[3]+':'+m[4]+' 同步';
+}
+
 async function syncPush(){
   const key=getApiKey(),binId=getSyncBin();
   if(!key)return{ok:false,msg:'請先設定'};
@@ -1553,6 +1585,7 @@ async function syncPush(){
       const j=await r.json();saveSyncBin(j.metadata.id);
     }
     setSyncIndicator('ok');
+    recordSync();
     return{ok:true,msg:'✅ 上傳成功 '+now_().slice(5,16)};
   }catch(e){setSyncIndicator('err');return{ok:false,msg:'❌ '+e.message};}
 }
@@ -1567,6 +1600,7 @@ async function syncPull(){
     const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
     SYNC_KEYS.forEach(k=>{if(data[k]!==undefined){S[k]=data[k];LS.set('fm_'+KM[k],data[k]);}});
     setSyncIndicator('ok');
+    recordSync();
     return{ok:true,msg:'✅ 已同步 '+(data._updated||'').slice(5,16)};
   }catch(e){setSyncIndicator('err');return{ok:false,msg:'❌ '+e.message};}
 }
@@ -1637,8 +1671,9 @@ function openSyncModal(){
 
     // ── QR 配對區 ──
     const qrLbl=document.createElement('div');
-    qrLbl.style.cssText='font-size:.7rem;color:#6a8fa8;letter-spacing:1.5px;margin-bottom:10px;text-transform:uppercase;';
-    qrLbl.textContent='快速配對';
+    qrLbl.style.cssText='font-size:.7rem;color:#6a8fa8;letter-spacing:1.5px;margin-bottom:10px;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;';
+    const todayCnt=getTodaySyncCount();
+    qrLbl.innerHTML='<span>快速配對</span><span style="font-size:.68rem;color:'+(todayCnt>0?'#00d4aa':'#4a6a82')+';text-transform:none;letter-spacing:0;font-weight:normal;">今日同步 '+todayCnt+' 次</span>';
     box.appendChild(qrLbl);
 
     const qrRow=document.createElement('div');qrRow.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;';
@@ -1842,6 +1877,7 @@ async function autoPull(){
         _lastUpdated=data._updated;
         const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
         SYNC_KEYS.forEach(k=>{if(data[k]!==undefined){S[k]=data[k];LS.set('fm_'+KM[k],data[k]);}});
+        recordSync();
         render();
       }
     }
@@ -1857,6 +1893,7 @@ _pullTimer=setInterval(autoPull,15000);
 
 // 啟動：先 pull 一次再 render
 (async()=>{
+  updateLastSyncLabel();
   if(getSyncEnabled()&&getApiKey()&&getSyncBin()){
     const r=await syncPull();
     if(r.ok){_lastUpdated=now_();render();return;}
