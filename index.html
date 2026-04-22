@@ -85,8 +85,8 @@ textarea{resize:none;height:52px;}
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div>
-        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04222042</div>
-        <div id="last-sync" style="font-size:.62rem;color:#4a6a82;margin-top:1px;line-height:1;"></div>
+        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04222048</div>
+        <div id="last-sync" style="font-size:.62rem;color:#2dd4bf;margin-top:1px;line-height:1;padding-left:1.45em;"></div>
       </div>
       <span id="sync-status" style="font-size:.7rem;color:#6a8fa8;"></span>
       <button id="sync-btn" style="background:none;border:none;color:#6a8fa8;font-size:1.15rem;cursor:pointer;padding:2px 4px;line-height:1;" title="同步設定">⚙️</button>
@@ -1713,9 +1713,31 @@ function openSyncModal(){
 
     // ── QR 配對區 ──
     const qrLbl=document.createElement('div');
-    qrLbl.style.cssText='font-size:.7rem;color:#6a8fa8;letter-spacing:1.5px;margin-bottom:10px;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;';
+    qrLbl.style.cssText='font-size:.7rem;color:#6a8fa8;letter-spacing:1.5px;margin-bottom:10px;text-transform:uppercase;display:flex;align-items:center;gap:8px;';
     const todayCnt=getTodaySyncCount();
-    qrLbl.innerHTML='<span>快速配對</span><span style="font-size:.68rem;color:'+(todayCnt>0?'#00d4aa':'#4a6a82')+';text-transform:none;letter-spacing:0;font-weight:normal;">今日同步 '+todayCnt+' 次</span>';
+
+    // 連線狀態燈號
+    let dotCol,stText,stTxtCol;
+    if(paired){
+      // 有配對：判斷是否最近有同步
+      const last=getLastSync();
+      if(last){
+        // 若在 5 分鐘內同步過視為「已連線」
+        const t=new Date(last.replace(' ','T')+':00').getTime();
+        const diff=Date.now()-t;
+        if(diff<5*60*1000){dotCol='#00d4aa';stText='已連線';stTxtCol='#00d4aa';}
+        else{dotCol='#ffd166';stText='待連線';stTxtCol='#ffd166';}
+      } else {dotCol='#ffd166';stText='待連線';stTxtCol='#ffd166';}
+    } else {
+      dotCol='#6a8fa8';stText='未配對';stTxtCol='#6a8fa8';
+    }
+
+    qrLbl.innerHTML='<span>快速配對</span>'+
+      '<span style="display:inline-flex;align-items:center;gap:4px;text-transform:none;letter-spacing:0;font-weight:normal;">'+
+        '<span style="width:8px;height:8px;border-radius:50%;background:'+dotCol+';box-shadow:0 0 6px '+dotCol+';"></span>'+
+        '<span style="font-size:.7rem;color:'+stTxtCol+';">'+stText+'</span>'+
+      '</span>'+
+      '<span style="margin-left:auto;font-size:.68rem;color:'+(todayCnt>0?'#00d4aa':'#4a6a82')+';text-transform:none;letter-spacing:0;font-weight:normal;">今日 '+todayCnt+' 次</span>';
     box.appendChild(qrLbl);
 
     const qrRow=document.createElement('div');qrRow.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;';
