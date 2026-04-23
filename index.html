@@ -85,10 +85,9 @@ textarea{resize:none;height:52px;}
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div>
-        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04222048</div>
-        <div id="last-sync" style="font-size:.62rem;color:#2dd4bf;margin-top:1px;line-height:1;padding-left:1.45em;"></div>
+        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04231756</div>
+        <div id="last-sync" style="font-size:.62rem;color:#2dd4bf;margin-top:1px;line-height:1;padding-left:1.45em;display:flex;align-items:center;gap:5px;"></div>
       </div>
-      <span id="sync-status" style="font-size:.7rem;color:#6a8fa8;"></span>
       <button id="sync-btn" style="background:none;border:none;color:#6a8fa8;font-size:1.15rem;cursor:pointer;padding:2px 4px;line-height:1;" title="同步設定">⚙️</button>
     </div>
     <div style="display:flex;align-items:center;gap:2px;">
@@ -1606,10 +1605,16 @@ function getTodaySyncCount(){
 function updateLastSyncLabel(){
   const el=document.getElementById('last-sync');if(!el)return;
   const t=getLastSync();
-  if(!t){el.textContent='';return;}
-  // t = "YYYY-MM-DD HH:MM" → 轉成 M/D HH:MM
+  if(!t){el.innerHTML='';return;}
   const m=t.match(/^\d{4}-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
-  if(m)el.textContent='於 '+parseInt(m[1])+'/'+parseInt(m[2])+' '+m[3]+':'+m[4]+' 同步';
+  if(!m){el.innerHTML='';return;}
+  const txt='於 '+parseInt(m[1])+'/'+parseInt(m[2])+' '+m[3]+':'+m[4]+' 同步';
+  // 燈號顏色（同設定頁邏輯）
+  const last=new Date(t.replace(' ','T')+':00').getTime();
+  const diff=Date.now()-last;
+  const dotCol=diff<5*60*1000?'#00d4aa':'#ffd166';
+  el.innerHTML='<span>'+txt+'</span>'+
+    '<span style="width:7px;height:7px;border-radius:50%;background:'+dotCol+';box-shadow:0 0 5px '+dotCol+';flex-shrink:0;"></span>';
 }
 
 async function syncPush(){
@@ -2068,6 +2073,9 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoPull()
 
 // 每 15 秒定期檢查
 _pullTimer=setInterval(autoPull,15000);
+
+// 每 30 秒更新燈號顏色
+setInterval(updateLastSyncLabel,30000);
 
 // 啟動：先 pull 一次再 render
 (async()=>{
