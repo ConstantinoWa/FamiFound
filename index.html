@@ -85,7 +85,7 @@ textarea{resize:none;height:52px;}
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div>
-        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04241716</div>
+        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04241918</div>
         <div id="last-sync" style="font-size:.62rem;color:#2dd4bf;margin-top:1px;line-height:1;padding-left:1.45em;display:flex;align-items:center;gap:5px;"></div>
       </div>
       <button id="sync-btn" style="background:none;border:none;color:#6a8fa8;font-size:1.15rem;cursor:pointer;padding:2px 4px;line-height:1;" title="同步設定">⚙️</button>
@@ -1602,20 +1602,7 @@ function getTodaySyncCount(){
   const c=LS.get('fm_syncCnt',{date:'',n:0});
   return c.date===todayKey()?c.n:0;
 }
-function updateLastSyncLabel(){
-  const el=document.getElementById('last-sync');if(!el)return;
-  const t=getLastSync();
-  if(!t){el.innerHTML='';return;}
-  const m=t.match(/^\d{4}-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
-  if(!m){el.innerHTML='';return;}
-  const txt='於 '+parseInt(m[1])+'/'+parseInt(m[2])+' '+m[3]+':'+m[4]+' 同步';
-  // 燈號顏色（同設定頁邏輯）
-  const last=new Date(t.replace(' ','T')+':00').getTime();
-  const diff=Date.now()-last;
-  const dotCol=diff<5*60*1000?'#00d4aa':'#ffd166';
-  el.innerHTML='<span>'+txt+'</span>'+
-    '<span style="width:7px;height:7px;border-radius:50%;background:'+dotCol+';box-shadow:0 0 5px '+dotCol+';flex-shrink:0;"></span>';
-}
+function updateLastSyncLabel(){/* 實際定義在下方（包含對方在線偵測邏輯）*/}
 
 // ── 本地備份機制（防止資料被覆蓋）──
 function saveLocalBackup(tag){
@@ -1800,15 +1787,12 @@ function openSyncModal(){
     // 連線狀態燈號
     let dotCol,stText,stTxtCol;
     if(paired){
-      // 有配對：判斷是否最近有同步
-      const last=getLastSync();
-      if(last){
-        // 若在 5 分鐘內同步過視為「已連線」
-        const t=new Date(last.replace(' ','T')+':00').getTime();
-        const diff=Date.now()-t;
-        if(diff<5*60*1000){dotCol='#00d4aa';stText='已連線';stTxtCol='#00d4aa';}
-        else{dotCol='#ffd166';stText='待連線';stTxtCol='#ffd166';}
-      } else {dotCol='#ffd166';stText='待連線';stTxtCol='#ffd166';}
+      if(_peerOnline){dotCol='#00d4aa';stText='對方在線';stTxtCol='#00d4aa';}
+      else {
+        const last=getLastSync();
+        if(last){dotCol='#ffd166';stText='對方未上線';stTxtCol='#ffd166';}
+        else {dotCol='#ffd166';stText='待連線';stTxtCol='#ffd166';}
+      }
     } else {
       dotCol='#6a8fa8';stText='未配對';stTxtCol='#6a8fa8';
     }
@@ -2158,37 +2142,74 @@ fixVH();
 // 齒輪按鈕
 document.getElementById('sync-btn').addEventListener('click',openSyncModal);
 
-// ── 被動同步引擎（單機為主，有觸發條件才同步）─────────
+// ── 對等偵測同步（雙方都在線才同步）─────────────────
 let _syncing=false;
 let _lastUpdated='';
+let _peerOnline=false; // 對方是否在線
+let _myId=LS.get('fm_peerId','');
+if(!_myId){_myId='p'+Math.random().toString(36).slice(2,8);LS.set('fm_peerId',_myId);}
 
-// 改資料時「不」自動推送 — 留給使用者手動操作或下次觸發時機
-function schedulePush(){
-  // no-op：被動模式下不自動推送
-  // 只標記本機有未同步變動
-  LS.set('fm_dirty',true);
+function schedulePush(){LS.set('fm_dirty',true);}
+
+// 更新自己的心跳到雲端（獨立於主資料 Bin，用另一個 Bin）
+const HEARTBEAT_BIN_KEY='fm_hbBin';
+async function ensureHeartbeatBin(){
+  let id=LS.get(HEARTBEAT_BIN_KEY,'');
+  if(id)return id;
+  try{
+    const r=await fetch(JBIN+'/b',{method:'POST',headers:{'Content-Type':'application/json','X-Master-Key':JBIN_KEY,'X-Bin-Name':'FamiFound-hb-'+getSyncBin(),'X-Bin-Private':'true'},body:JSON.stringify({peers:{}})});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();id=j.metadata.id;LS.set(HEARTBEAT_BIN_KEY,id);
+    return id;
+  }catch(e){return '';}
 }
 
-// 被動 pull：只在觸發時呼叫一次（不定時輪詢）
-async function passiveSync(reason){
+// 發送心跳 + 讀取對方心跳
+async function sendHeartbeat(){
+  if(!getSyncEnabled()||!getSyncBin())return false;
+  const hbId=await ensureHeartbeatBin();
+  if(!hbId)return false;
+  try{
+    // 讀取目前 heartbeat 資料
+    const r=await fetch(JBIN+'/b/'+hbId+'/latest',{headers:{'X-Master-Key':JBIN_KEY,'X-Bin-Meta':'false'}});
+    let data={peers:{}};
+    if(r.ok)data=await r.json();
+    if(!data.peers)data.peers={};
+    // 更新自己心跳
+    data.peers[_myId]=Date.now();
+    // 清掉超過 5 分鐘沒心跳的
+    const now=Date.now();
+    Object.keys(data.peers).forEach(k=>{if(now-data.peers[k]>5*60*1000)delete data.peers[k];});
+    // 檢查是否有對方（除了自己以外）的心跳在 30 秒內
+    let peerActive=false;
+    Object.keys(data.peers).forEach(k=>{
+      if(k!==_myId&&now-data.peers[k]<30*1000)peerActive=true;
+    });
+    // 寫回心跳
+    await fetch(JBIN+'/b/'+hbId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JBIN_KEY,'X-Bin-Versioning':'false'},body:JSON.stringify(data)});
+    return peerActive;
+  }catch(e){return false;}
+}
+
+// 核心：執行一次同步（合併 + 推回）
+async function doSync(reason){
   if(!getSyncEnabled()||!getApiKey()||!getSyncBin())return;
-  if(_syncing||document.hidden)return;
-  if(!navigator.onLine)return; // 沒網路不同步
+  if(_syncing)return;
+  if(!navigator.onLine)return;
   _syncing=true;
+  const ctrl=new AbortController();
+  const timeoutId=setTimeout(()=>ctrl.abort(),10000);
   try{
     const key=getApiKey(),binId=getSyncBin();
-    const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'}});
+    const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'},signal:ctrl.signal});
+    clearTimeout(timeoutId);
     if(r.ok){
       const cloud=await r.json();
       const dirty=LS.get('fm_dirty',false);
-      // 雲端沒變 且 本機沒變 → 跳過
       if(cloud._updated===_lastUpdated&&!dirty){_syncing=false;return;}
-
       saveLocalBackup('sync-'+reason);
       const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
       let changed=false;
-
-      // 合併雲端資料到本機
       ['members','categories','expenses'].forEach(k=>{
         if(cloud[k]!==undefined){
           const merged=mergeData(S[k],cloud[k],true);
@@ -2201,11 +2222,8 @@ async function passiveSync(reason){
           if(JSON.stringify(merged)!==JSON.stringify(S[k])){S[k]=merged;LS.set('fm_'+KM[k],merged);changed=true;}
         }
       });
-
       _lastUpdated=cloud._updated||'';
       if(changed)render();
-
-      // 若本機有變動（dirty）或合併後資料與雲端不同 → 推回雲端
       if(dirty||changed){
         _syncing=false;
         await syncPush();
@@ -2213,30 +2231,78 @@ async function passiveSync(reason){
         return;
       }
     }
-  }catch(e){}
+  }catch(e){clearTimeout(timeoutId);}
   _syncing=false;
 }
+// 兼容舊名稱
+async function passiveSync(reason){return doSync(reason);}
 
-// ── 同步觸發時機 ──
-// 1. App 開啟時（下方的啟動區）
-// 2. 從背景切回前景時
-document.addEventListener('visibilitychange',()=>{
-  if(!document.hidden)passiveSync('visible');
-});
-// 3. 網路從離線恢復時
-window.addEventListener('online',()=>passiveSync('online'));
+// 心跳 + 偵測循環：每 20 秒一次
+async function heartbeatLoop(){
+  if(!getSyncEnabled()||!getSyncBin())return;
+  if(document.hidden)return; // 背景時不發心跳
+  const peerActive=await sendHeartbeat();
+  const wasOnline=_peerOnline;
+  _peerOnline=peerActive;
 
-// 每 30 秒更新燈號顏色
-setInterval(updateLastSyncLabel,30000);
+  // 對方狀態變化 → 更新燈號
+  if(peerActive!==wasOnline){updateLastSyncLabel();}
 
-// 啟動：先同步一次（合併+推回）
-(async()=>{
-  updateLastSyncLabel();
-  if(getSyncEnabled()&&getApiKey()&&getSyncBin()&&navigator.onLine){
-    await passiveSync('startup');
+  // 對方在線 且 本機有變動 或 雲端可能有變動 → 觸發同步
+  if(peerActive){
+    const dirty=LS.get('fm_dirty',false);
+    // 檢查雲端最後更新時間，有變就拉，本機有變就推
+    if(dirty||!_lastUpdated){
+      doSync('peer-online');
+    } else {
+      // 輕量檢查雲端是否有變
+      try{
+        const key=getApiKey(),binId=getSyncBin();
+        const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'}});
+        if(r.ok){
+          const cloud=await r.json();
+          if(cloud._updated&&cloud._updated!==_lastUpdated)doSync('peer-update');
+        }
+      }catch(e){}
+    }
   }
-  render();
-})();
+}
+
+// 燈號三態：綠 = 對方在線且剛同步；黃 = 配對但對方不在線；灰 = 未配對
+// 更新燈號邏輯（覆蓋原本的簡易版）
+function updateLastSyncLabel(){
+  const el=document.getElementById('last-sync');if(!el)return;
+  const t=getLastSync();
+  const paired=getApiKey()&&getSyncBin();
+  if(!paired){el.innerHTML='';return;}
+  let dotCol,txt;
+  if(_peerOnline){
+    dotCol='#00d4aa'; // 綠：對方在線
+    txt=t?('於 '+parseInt(t.slice(5,7))+'/'+parseInt(t.slice(8,10))+' '+t.slice(11,16)+' 同步'):'對方在線';
+  } else if(t){
+    dotCol='#ffd166'; // 黃：有同步記錄但對方不在線
+    txt='於 '+parseInt(t.slice(5,7))+'/'+parseInt(t.slice(8,10))+' '+t.slice(11,16)+' 同步';
+  } else {
+    dotCol='#6a8fa8'; // 灰：配對但從沒同步
+    txt='尚未同步';
+  }
+  el.innerHTML='<span>'+txt+'</span>'+
+    '<span style="width:7px;height:7px;border-radius:50%;background:'+dotCol+';box-shadow:0 0 6px '+dotCol+(_peerOnline?',0 0 10px '+dotCol:'')+';flex-shrink:0;"></span>';
+}
+
+// 啟動後每 20 秒心跳一次；視窗可見時立刻心跳
+setInterval(heartbeatLoop,20000);
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden)heartbeatLoop();
+});
+window.addEventListener('online',()=>heartbeatLoop());
+
+// 啟動：直接 render 本機資料；若已配對，背景啟動心跳
+updateLastSyncLabel();
+render();
+if(getSyncEnabled()&&getSyncBin()&&navigator.onLine){
+  setTimeout(heartbeatLoop,1000); // 1 秒後發第一次心跳
+}
 </script>
 </body>
 </html>
