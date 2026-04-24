@@ -85,7 +85,7 @@ textarea{resize:none;height:52px;}
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div>
-        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04231756</div>
+        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04241649</div>
         <div id="last-sync" style="font-size:.62rem;color:#2dd4bf;margin-top:1px;line-height:1;padding-left:1.45em;display:flex;align-items:center;gap:5px;"></div>
       </div>
       <button id="sync-btn" style="background:none;border:none;color:#6a8fa8;font-size:1.15rem;cursor:pointer;padding:2px 4px;line-height:1;" title="同步設定">⚙️</button>
@@ -1636,19 +1636,62 @@ async function syncPush(){
     return{ok:true,msg:'✅ 上傳成功 '+now_().slice(5,16)};
   }catch(e){setSyncIndicator('err');return{ok:false,msg:'❌ '+e.message};}
 }
-async function syncPull(){
+
+// 智慧合併：陣列按 id 聯集，物件（月份 key）聯集
+function mergeData(localArr,cloudArr,byId){
+  if(!Array.isArray(localArr))localArr=[];
+  if(!Array.isArray(cloudArr))cloudArr=[];
+  if(byId){
+    const map=new Map();
+    // 雲端先放進去
+    cloudArr.forEach(it=>{if(it&&it.id!==undefined)map.set(it.id,it);});
+    // 本機優先：有 id 衝突時以本機較新版本覆蓋（本機是使用者剛改的）
+    localArr.forEach(it=>{if(it&&it.id!==undefined)map.set(it.id,it);});
+    return Array.from(map.values());
+  }
+  return localArr;
+}
+function mergeObj(localObj,cloudObj){
+  const o={...(cloudObj||{}),...(localObj||{})};
+  return o;
+}
+
+async function syncPull(opts){
+  opts=opts||{};
+  const merge=opts.merge!==false; // 預設合併；傳 {merge:false} 就強制覆蓋
   const key=getApiKey(),binId=getSyncBin();
   if(!key||!binId)return{ok:false,msg:'尚未配對'};
   setSyncIndicator('pulling');
   try{
     const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'}});
     if(!r.ok)throw new Error('HTTP '+r.status);
-    const data=await r.json();
+    const cloud=await r.json();
     const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
-    SYNC_KEYS.forEach(k=>{if(data[k]!==undefined){S[k]=data[k];LS.set('fm_'+KM[k],data[k]);}});
+
+    if(merge){
+      // 智慧合併：本機 + 雲端 聯集
+      // 陣列類（by id）
+      ['members','categories','expenses'].forEach(k=>{
+        if(cloud[k]!==undefined){
+          const merged=mergeData(S[k],cloud[k],true);
+          S[k]=merged;LS.set('fm_'+KM[k],merged);
+        }
+      });
+      // 物件類（月份 key）
+      ['contribs','allocs','extras'].forEach(k=>{
+        if(cloud[k]!==undefined){
+          const merged=mergeObj(S[k],cloud[k]);
+          S[k]=merged;LS.set('fm_'+KM[k],merged);
+        }
+      });
+      // 合併後立刻推回雲端
+      await syncPush();
+    } else {
+      SYNC_KEYS.forEach(k=>{if(cloud[k]!==undefined){S[k]=cloud[k];LS.set('fm_'+KM[k],cloud[k]);}});
+    }
     setSyncIndicator('ok');
     recordSync();
-    return{ok:true,msg:'✅ 已同步 '+(data._updated||'').slice(5,16)};
+    return{ok:true,msg:'✅ 已同步 '+(cloud._updated||'').slice(5,16)};
   }catch(e){setSyncIndicator('err');return{ok:false,msg:'❌ '+e.message};}
 }
 
@@ -1793,7 +1836,13 @@ function openSyncModal(){
     const dmRow=document.createElement('div');dmRow.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;';
     const mkDM=(txt,col,fn)=>{const b=document.createElement('button');b.textContent=txt;b.style.cssText='padding:10px 4px;border-radius:9px;border:1px solid '+col+';background:transparent;color:'+col+';font-size:.82rem;font-weight:600;cursor:pointer;';b.onclick=fn;return b;};
     dmRow.appendChild(mkDM('⬆ 推送到雲端','#00d4aa',async()=>{setStatus('⏳ 上傳中…');const r=await syncPush();setStatus(r.msg);}));
-    dmRow.appendChild(mkDM('⬇ 從雲端拉取','#4fc3f7',async()=>{setStatus('⏳ 下載中…');const r=await syncPull();setStatus(r.msg);if(r.ok){render();document.body.removeChild(ov);}}));
+    dmRow.appendChild(mkDM('⬇ 從雲端拉取','#4fc3f7',async()=>{
+      const choice=confirm('如何處理雲端資料？\n\n確定 = 合併（保留本機+雲端的所有資料）\n取消 = 覆蓋（丟掉本機，只用雲端）');
+      setStatus('⏳ 下載中…');
+      const r=await syncPull({merge:choice});
+      setStatus(r.msg);
+      if(r.ok){render();document.body.removeChild(ov);}
+    }));
     box.appendChild(dmRow);
 
     // ── 自動同步開關 ──
@@ -2054,14 +2103,33 @@ async function autoPull(){
     const key=getApiKey(),binId=getSyncBin();
     const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'}});
     if(r.ok){
-      const data=await r.json();
+      const cloud=await r.json();
       // 只有當雲端 _updated 比本機看過的新才套用
-      if(data._updated&&data._updated!==_lastUpdated){
-        _lastUpdated=data._updated;
+      if(cloud._updated&&cloud._updated!==_lastUpdated){
+        _lastUpdated=cloud._updated;
         const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
-        SYNC_KEYS.forEach(k=>{if(data[k]!==undefined){S[k]=data[k];LS.set('fm_'+KM[k],data[k]);}});
-        recordSync();
-        render();
+        // 合併模式：避免覆蓋本機新增但尚未推送的資料
+        let changed=false;
+        ['members','categories','expenses'].forEach(k=>{
+          if(cloud[k]!==undefined){
+            const before=JSON.stringify(S[k]||[]);
+            const merged=mergeData(S[k],cloud[k],true);
+            if(JSON.stringify(merged)!==before){S[k]=merged;LS.set('fm_'+KM[k],merged);changed=true;}
+            else if(before!==JSON.stringify(cloud[k])){S[k]=merged;LS.set('fm_'+KM[k],merged);changed=true;}
+          }
+        });
+        ['contribs','allocs','extras'].forEach(k=>{
+          if(cloud[k]!==undefined){
+            const merged=mergeObj(S[k],cloud[k]);
+            if(JSON.stringify(merged)!==JSON.stringify(S[k])){S[k]=merged;LS.set('fm_'+KM[k],merged);changed=true;}
+          }
+        });
+        if(changed){
+          recordSync();
+          render();
+          // 若本機有比雲端多的，順便推回去
+          setTimeout(()=>{if(!_syncing)syncPush();},800);
+        }
       }
     }
   }catch(e){}
