@@ -85,7 +85,7 @@ textarea{resize:none;height:52px;}
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div>
-        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04241918</div>
+        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04242033</div>
         <div id="last-sync" style="font-size:.62rem;color:#2dd4bf;margin-top:1px;line-height:1;padding-left:1.45em;display:flex;align-items:center;gap:5px;"></div>
       </div>
       <button id="sync-btn" style="background:none;border:none;color:#6a8fa8;font-size:1.15rem;cursor:pointer;padding:2px 4px;line-height:1;" title="同步設定">⚙️</button>
@@ -1604,32 +1604,10 @@ function getTodaySyncCount(){
 }
 function updateLastSyncLabel(){/* 實際定義在下方（包含對方在線偵測邏輯）*/}
 
-// ── 本地備份機制（防止資料被覆蓋）──
-function saveLocalBackup(tag){
-  const backup={_at:now_(),_tag:tag||''};
-  SYNC_KEYS.forEach(k=>backup[k]=S[k]);
-  const list=LS.get('fm_backups',[]);
-  list.unshift(backup);
-  if(list.length>5)list.length=5; // 保留最近 5 份
-  LS.set('fm_backups',list);
-}
-function getBackups(){return LS.get('fm_backups',[]);}
-function restoreBackup(idx){
-  const list=getBackups();
-  if(!list[idx])return false;
-  const b=list[idx];
-  const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
-  SYNC_KEYS.forEach(k=>{if(b[k]!==undefined){S[k]=b[k];LS.set('fm_'+KM[k],b[k]);}});
-  return true;
-}
-
 async function syncPush(){
   const key=getApiKey(),binId=getSyncBin();
   if(!key)return{ok:false,msg:'請先設定'};
-  // 安全檢查：不推空資料覆蓋雲端有資料的情況
-  const hasLocal=(S.expenses&&S.expenses.length)||(S.members&&S.members.length>0);
   setSyncIndicator('pushing');
-  saveLocalBackup('push'); // 推送前先備份
   const data={};SYNC_KEYS.forEach(k=>data[k]=S[k]);data._updated=now_();
   try{
     if(binId){
@@ -1646,72 +1624,19 @@ async function syncPush(){
   }catch(e){setSyncIndicator('err');return{ok:false,msg:'❌ '+e.message};}
 }
 
-// 陣列合併：按 id 聯集，兩邊的項目都保留
-function mergeData(localArr,cloudArr,byId){
-  if(!Array.isArray(localArr))localArr=[];
-  if(!Array.isArray(cloudArr))cloudArr=[];
-  if(byId){
-    const map=new Map();
-    cloudArr.forEach(it=>{if(it&&it.id!==undefined)map.set(it.id,it);});
-    localArr.forEach(it=>{if(it&&it.id!==undefined)map.set(it.id,it);});
-    return Array.from(map.values());
-  }
-  return localArr;
-}
-
-// 深層月份物件合併：contribs/allocs/extras = { "YYYY-M": { memberId: amount } }
-// 外層（月份）和內層（該月各成員）都要合併
-function mergeMonthObj(localObj,cloudObj){
-  const local=localObj||{}, cloud=cloudObj||{};
-  const result={};
-  const allMonths=new Set([...Object.keys(cloud),...Object.keys(local)]);
-  allMonths.forEach(m=>{
-    const l=local[m], c=cloud[m];
-    if(typeof l==='object'&&l!==null&&typeof c==='object'&&c!==null){
-      // 同月兩邊都有 → 深層合併該月內每個成員
-      result[m]={...c,...l}; // 本機優先
-    } else {
-      result[m]=l!==undefined?l:c;
-    }
-  });
-  return result;
-}
-
-async function syncPull(opts){
-  opts=opts||{};
-  const merge=opts.merge!==false;
+async function syncPull(){
   const key=getApiKey(),binId=getSyncBin();
   if(!key||!binId)return{ok:false,msg:'尚未配對'};
   setSyncIndicator('pulling');
   try{
     const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'}});
     if(!r.ok)throw new Error('HTTP '+r.status);
-    const cloud=await r.json();
-    saveLocalBackup('pull'); // 拉取前先備份
+    const data=await r.json();
     const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
-
-    if(merge){
-      // 陣列類（by id）
-      ['members','categories','expenses'].forEach(k=>{
-        if(cloud[k]!==undefined){
-          const merged=mergeData(S[k],cloud[k],true);
-          S[k]=merged;LS.set('fm_'+KM[k],merged);
-        }
-      });
-      // 月份物件類（深層合併）
-      ['contribs','allocs','extras'].forEach(k=>{
-        if(cloud[k]!==undefined){
-          const merged=mergeMonthObj(S[k],cloud[k]);
-          S[k]=merged;LS.set('fm_'+KM[k],merged);
-        }
-      });
-      await syncPush();
-    } else {
-      SYNC_KEYS.forEach(k=>{if(cloud[k]!==undefined){S[k]=cloud[k];LS.set('fm_'+KM[k],cloud[k]);}});
-    }
+    SYNC_KEYS.forEach(k=>{if(data[k]!==undefined){S[k]=data[k];LS.set('fm_'+KM[k],data[k]);}});
     setSyncIndicator('ok');
     recordSync();
-    return{ok:true,msg:'✅ 已同步 '+(cloud._updated||'').slice(5,16)};
+    return{ok:true,msg:'✅ 已同步 '+(data._updated||'').slice(5,16)};
   }catch(e){setSyncIndicator('err');return{ok:false,msg:'❌ '+e.message};}
 }
 
@@ -1853,13 +1778,7 @@ function openSyncModal(){
     const dmRow=document.createElement('div');dmRow.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;';
     const mkDM=(txt,col,fn)=>{const b=document.createElement('button');b.textContent=txt;b.style.cssText='padding:10px 4px;border-radius:9px;border:1px solid '+col+';background:transparent;color:'+col+';font-size:.82rem;font-weight:600;cursor:pointer;';b.onclick=fn;return b;};
     dmRow.appendChild(mkDM('⬆ 推送到雲端','#00d4aa',async()=>{setStatus('⏳ 上傳中…');const r=await syncPush();setStatus(r.msg);}));
-    dmRow.appendChild(mkDM('⬇ 從雲端拉取','#4fc3f7',async()=>{
-      const choice=confirm('如何處理雲端資料？\n\n確定 = 合併（保留本機+雲端的所有資料）\n取消 = 覆蓋（丟掉本機，只用雲端）');
-      setStatus('⏳ 下載中…');
-      const r=await syncPull({merge:choice});
-      setStatus(r.msg);
-      if(r.ok){render();document.body.removeChild(ov);}
-    }));
+    dmRow.appendChild(mkDM('⬇ 從雲端拉取','#4fc3f7',async()=>{setStatus('⏳ 下載中…');const r=await syncPull();setStatus(r.msg);if(r.ok){render();document.body.removeChild(ov);}}));
     box.appendChild(dmRow);
 
     // ── 自動同步開關 ──
@@ -1882,55 +1801,8 @@ function openSyncModal(){
     }
 
     // ── 隱藏功能區 ──
-    const hidLbl=document.createElement('div');
-    hidLbl.style.cssText='font-size:.7rem;color:#6a8fa8;letter-spacing:1.5px;margin:18px 0 10px;text-transform:uppercase;';
-    hidLbl.textContent='本地備份';
-    box.appendChild(hidLbl);
-
-    // 列出所有備份
-    const backups=getBackups();
-    if(backups.length===0){
-      const noBk=document.createElement('div');
-      noBk.style.cssText='padding:12px;background:#152536;border-radius:9px;font-size:.78rem;color:#6a8fa8;text-align:center;margin-bottom:10px;';
-      noBk.textContent='尚無備份';
-      box.appendChild(noBk);
-    } else {
-      backups.forEach((b,i)=>{
-        const bkRow=document.createElement('div');
-        bkRow.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;background:#152536;border-radius:9px;margin-bottom:6px;';
-        const expCnt=(b.expenses||[]).length;
-        const memCnt=(b.members||[]).length;
-        const tagTxt={push:'上傳前',pull:'拉取前',auto:'自動同步前',manual:'手動'}[b._tag]||b._tag||'備份';
-        bkRow.innerHTML='<div style="flex:1;min-width:0;">'+
-          '<div style="font-size:.82rem;font-weight:600;">'+(b._at||'').slice(5,16)+'　<span style="color:#6a8fa8;font-size:.7rem;font-weight:normal;">'+tagTxt+'</span></div>'+
-          '<div style="font-size:.7rem;color:#6a8fa8;margin-top:2px;">'+memCnt+' 成員・'+expCnt+' 筆記帳</div>'+
-          '</div>';
-        const restBtn=document.createElement('button');
-        restBtn.textContent='還原';
-        restBtn.style.cssText='padding:5px 14px;border-radius:20px;border:1px solid #ffd166;background:none;color:#ffd166;font-weight:700;cursor:pointer;font-size:.78rem;flex-shrink:0;';
-        restBtn.onclick=()=>{
-          if(confirm('確定還原此備份？目前的資料會被取代（但會先自動備份一份當前資料）。')){
-            saveLocalBackup('manual'); // 還原前再存一份當前
-            if(restoreBackup(i+1)){ // i+1 因為上面的 save 會變成 index 0
-              setStatus('✅ 已還原備份');render();
-            } else setStatus('❌ 還原失敗');
-          }
-        };
-        bkRow.appendChild(restBtn);
-        box.appendChild(bkRow);
-      });
-    }
-
-    // 手動備份按鈕
-    const bkupBtn=document.createElement('button');
-    bkupBtn.textContent='💾 立即備份當前資料';
-    bkupBtn.style.cssText='width:100%;padding:10px;border-radius:9px;border:1px solid #243d55;background:#152536;color:#e8f4fd;font-size:.82rem;cursor:pointer;margin-bottom:16px;';
-    bkupBtn.onclick=()=>{saveLocalBackup('manual');setStatus('✅ 已備份');};
-    box.appendChild(bkupBtn);
-
-    // ── 隱藏功能區 ──
     const hidLbl2=document.createElement('div');
-    hidLbl2.style.cssText='font-size:.7rem;color:#6a8fa8;letter-spacing:1.5px;margin:0 0 10px;text-transform:uppercase;';
+    hidLbl2.style.cssText='font-size:.7rem;color:#6a8fa8;letter-spacing:1.5px;margin:18px 0 10px;text-transform:uppercase;';
     hidLbl2.textContent='隱藏功能';
     box.appendChild(hidLbl2);
 
@@ -2191,56 +2063,10 @@ async function sendHeartbeat(){
   }catch(e){return false;}
 }
 
-// 核心：執行一次同步（合併 + 推回）
-async function doSync(reason){
-  if(!getSyncEnabled()||!getApiKey()||!getSyncBin())return;
-  if(_syncing)return;
-  if(!navigator.onLine)return;
-  _syncing=true;
-  const ctrl=new AbortController();
-  const timeoutId=setTimeout(()=>ctrl.abort(),10000);
-  try{
-    const key=getApiKey(),binId=getSyncBin();
-    const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'},signal:ctrl.signal});
-    clearTimeout(timeoutId);
-    if(r.ok){
-      const cloud=await r.json();
-      const dirty=LS.get('fm_dirty',false);
-      if(cloud._updated===_lastUpdated&&!dirty){_syncing=false;return;}
-      saveLocalBackup('sync-'+reason);
-      const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
-      let changed=false;
-      ['members','categories','expenses'].forEach(k=>{
-        if(cloud[k]!==undefined){
-          const merged=mergeData(S[k],cloud[k],true);
-          if(JSON.stringify(merged)!==JSON.stringify(S[k])){S[k]=merged;LS.set('fm_'+KM[k],merged);changed=true;}
-        }
-      });
-      ['contribs','allocs','extras'].forEach(k=>{
-        if(cloud[k]!==undefined){
-          const merged=mergeMonthObj(S[k],cloud[k]);
-          if(JSON.stringify(merged)!==JSON.stringify(S[k])){S[k]=merged;LS.set('fm_'+KM[k],merged);changed=true;}
-        }
-      });
-      _lastUpdated=cloud._updated||'';
-      if(changed)render();
-      if(dirty||changed){
-        _syncing=false;
-        await syncPush();
-        LS.set('fm_dirty',false);
-        return;
-      }
-    }
-  }catch(e){clearTimeout(timeoutId);}
-  _syncing=false;
-}
-// 兼容舊名稱
-async function passiveSync(reason){return doSync(reason);}
-
 // 心跳 + 偵測循環：每 20 秒一次
 async function heartbeatLoop(){
   if(!getSyncEnabled()||!getSyncBin())return;
-  if(document.hidden)return; // 背景時不發心跳
+  if(document.hidden)return;
   const peerActive=await sendHeartbeat();
   const wasOnline=_peerOnline;
   _peerOnline=peerActive;
@@ -2248,23 +2074,33 @@ async function heartbeatLoop(){
   // 對方狀態變化 → 更新燈號
   if(peerActive!==wasOnline){updateLastSyncLabel();}
 
-  // 對方在線 且 本機有變動 或 雲端可能有變動 → 觸發同步
-  if(peerActive){
+  // 偵測到對方剛上線（從離線 → 上線 的瞬間） → 執行雙向同步
+  if(peerActive&&!wasOnline){
+    // 流程：先推本機（讓對方能看到我的），再拉雲端（合併後版本）
     const dirty=LS.get('fm_dirty',false);
-    // 檢查雲端最後更新時間，有變就拉，本機有變就推
-    if(dirty||!_lastUpdated){
-      doSync('peer-online');
-    } else {
-      // 輕量檢查雲端是否有變
-      try{
-        const key=getApiKey(),binId=getSyncBin();
-        const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'}});
-        if(r.ok){
-          const cloud=await r.json();
-          if(cloud._updated&&cloud._updated!==_lastUpdated)doSync('peer-update');
-        }
-      }catch(e){}
+    if(dirty){
+      await syncPush();
+      LS.set('fm_dirty',false);
     }
+    // 稍等 1 秒讓對方也推完
+    setTimeout(async()=>{
+      const r=await syncPull();
+      if(r.ok)render();
+    },1000);
+  } else if(peerActive){
+    // 對方持續在線：只輕量檢查雲端有無變動
+    try{
+      const key=getApiKey(),binId=getSyncBin();
+      const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'}});
+      if(r.ok){
+        const cloud=await r.json();
+        if(cloud._updated&&cloud._updated!==_lastUpdated){
+          _lastUpdated=cloud._updated;
+          const pullRes=await syncPull();
+          if(pullRes.ok)render();
+        }
+      }
+    }catch(e){}
   }
 }
 
