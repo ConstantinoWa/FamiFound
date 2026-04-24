@@ -85,7 +85,7 @@ textarea{resize:none;height:52px;}
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div>
-        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04241649</div>
+        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04241716</div>
         <div id="last-sync" style="font-size:.62rem;color:#2dd4bf;margin-top:1px;line-height:1;padding-left:1.45em;display:flex;align-items:center;gap:5px;"></div>
       </div>
       <button id="sync-btn" style="background:none;border:none;color:#6a8fa8;font-size:1.15rem;cursor:pointer;padding:2px 4px;line-height:1;" title="同步設定">⚙️</button>
@@ -1617,10 +1617,32 @@ function updateLastSyncLabel(){
     '<span style="width:7px;height:7px;border-radius:50%;background:'+dotCol+';box-shadow:0 0 5px '+dotCol+';flex-shrink:0;"></span>';
 }
 
+// ── 本地備份機制（防止資料被覆蓋）──
+function saveLocalBackup(tag){
+  const backup={_at:now_(),_tag:tag||''};
+  SYNC_KEYS.forEach(k=>backup[k]=S[k]);
+  const list=LS.get('fm_backups',[]);
+  list.unshift(backup);
+  if(list.length>5)list.length=5; // 保留最近 5 份
+  LS.set('fm_backups',list);
+}
+function getBackups(){return LS.get('fm_backups',[]);}
+function restoreBackup(idx){
+  const list=getBackups();
+  if(!list[idx])return false;
+  const b=list[idx];
+  const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
+  SYNC_KEYS.forEach(k=>{if(b[k]!==undefined){S[k]=b[k];LS.set('fm_'+KM[k],b[k]);}});
+  return true;
+}
+
 async function syncPush(){
   const key=getApiKey(),binId=getSyncBin();
   if(!key)return{ok:false,msg:'請先設定'};
+  // 安全檢查：不推空資料覆蓋雲端有資料的情況
+  const hasLocal=(S.expenses&&S.expenses.length)||(S.members&&S.members.length>0);
   setSyncIndicator('pushing');
+  saveLocalBackup('push'); // 推送前先備份
   const data={};SYNC_KEYS.forEach(k=>data[k]=S[k]);data._updated=now_();
   try{
     if(binId){
@@ -1637,28 +1659,40 @@ async function syncPush(){
   }catch(e){setSyncIndicator('err');return{ok:false,msg:'❌ '+e.message};}
 }
 
-// 智慧合併：陣列按 id 聯集，物件（月份 key）聯集
+// 陣列合併：按 id 聯集，兩邊的項目都保留
 function mergeData(localArr,cloudArr,byId){
   if(!Array.isArray(localArr))localArr=[];
   if(!Array.isArray(cloudArr))cloudArr=[];
   if(byId){
     const map=new Map();
-    // 雲端先放進去
     cloudArr.forEach(it=>{if(it&&it.id!==undefined)map.set(it.id,it);});
-    // 本機優先：有 id 衝突時以本機較新版本覆蓋（本機是使用者剛改的）
     localArr.forEach(it=>{if(it&&it.id!==undefined)map.set(it.id,it);});
     return Array.from(map.values());
   }
   return localArr;
 }
-function mergeObj(localObj,cloudObj){
-  const o={...(cloudObj||{}),...(localObj||{})};
-  return o;
+
+// 深層月份物件合併：contribs/allocs/extras = { "YYYY-M": { memberId: amount } }
+// 外層（月份）和內層（該月各成員）都要合併
+function mergeMonthObj(localObj,cloudObj){
+  const local=localObj||{}, cloud=cloudObj||{};
+  const result={};
+  const allMonths=new Set([...Object.keys(cloud),...Object.keys(local)]);
+  allMonths.forEach(m=>{
+    const l=local[m], c=cloud[m];
+    if(typeof l==='object'&&l!==null&&typeof c==='object'&&c!==null){
+      // 同月兩邊都有 → 深層合併該月內每個成員
+      result[m]={...c,...l}; // 本機優先
+    } else {
+      result[m]=l!==undefined?l:c;
+    }
+  });
+  return result;
 }
 
 async function syncPull(opts){
   opts=opts||{};
-  const merge=opts.merge!==false; // 預設合併；傳 {merge:false} 就強制覆蓋
+  const merge=opts.merge!==false;
   const key=getApiKey(),binId=getSyncBin();
   if(!key||!binId)return{ok:false,msg:'尚未配對'};
   setSyncIndicator('pulling');
@@ -1666,10 +1700,10 @@ async function syncPull(opts){
     const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'}});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const cloud=await r.json();
+    saveLocalBackup('pull'); // 拉取前先備份
     const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
 
     if(merge){
-      // 智慧合併：本機 + 雲端 聯集
       // 陣列類（by id）
       ['members','categories','expenses'].forEach(k=>{
         if(cloud[k]!==undefined){
@@ -1677,14 +1711,13 @@ async function syncPull(opts){
           S[k]=merged;LS.set('fm_'+KM[k],merged);
         }
       });
-      // 物件類（月份 key）
+      // 月份物件類（深層合併）
       ['contribs','allocs','extras'].forEach(k=>{
         if(cloud[k]!==undefined){
-          const merged=mergeObj(S[k],cloud[k]);
+          const merged=mergeMonthObj(S[k],cloud[k]);
           S[k]=merged;LS.set('fm_'+KM[k],merged);
         }
       });
-      // 合併後立刻推回雲端
       await syncPush();
     } else {
       SYNC_KEYS.forEach(k=>{if(cloud[k]!==undefined){S[k]=cloud[k];LS.set('fm_'+KM[k],cloud[k]);}});
@@ -1867,8 +1900,55 @@ function openSyncModal(){
     // ── 隱藏功能區 ──
     const hidLbl=document.createElement('div');
     hidLbl.style.cssText='font-size:.7rem;color:#6a8fa8;letter-spacing:1.5px;margin:18px 0 10px;text-transform:uppercase;';
-    hidLbl.textContent='隱藏功能';
+    hidLbl.textContent='本地備份';
     box.appendChild(hidLbl);
+
+    // 列出所有備份
+    const backups=getBackups();
+    if(backups.length===0){
+      const noBk=document.createElement('div');
+      noBk.style.cssText='padding:12px;background:#152536;border-radius:9px;font-size:.78rem;color:#6a8fa8;text-align:center;margin-bottom:10px;';
+      noBk.textContent='尚無備份';
+      box.appendChild(noBk);
+    } else {
+      backups.forEach((b,i)=>{
+        const bkRow=document.createElement('div');
+        bkRow.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;background:#152536;border-radius:9px;margin-bottom:6px;';
+        const expCnt=(b.expenses||[]).length;
+        const memCnt=(b.members||[]).length;
+        const tagTxt={push:'上傳前',pull:'拉取前',auto:'自動同步前',manual:'手動'}[b._tag]||b._tag||'備份';
+        bkRow.innerHTML='<div style="flex:1;min-width:0;">'+
+          '<div style="font-size:.82rem;font-weight:600;">'+(b._at||'').slice(5,16)+'　<span style="color:#6a8fa8;font-size:.7rem;font-weight:normal;">'+tagTxt+'</span></div>'+
+          '<div style="font-size:.7rem;color:#6a8fa8;margin-top:2px;">'+memCnt+' 成員・'+expCnt+' 筆記帳</div>'+
+          '</div>';
+        const restBtn=document.createElement('button');
+        restBtn.textContent='還原';
+        restBtn.style.cssText='padding:5px 14px;border-radius:20px;border:1px solid #ffd166;background:none;color:#ffd166;font-weight:700;cursor:pointer;font-size:.78rem;flex-shrink:0;';
+        restBtn.onclick=()=>{
+          if(confirm('確定還原此備份？目前的資料會被取代（但會先自動備份一份當前資料）。')){
+            saveLocalBackup('manual'); // 還原前再存一份當前
+            if(restoreBackup(i+1)){ // i+1 因為上面的 save 會變成 index 0
+              setStatus('✅ 已還原備份');render();
+            } else setStatus('❌ 還原失敗');
+          }
+        };
+        bkRow.appendChild(restBtn);
+        box.appendChild(bkRow);
+      });
+    }
+
+    // 手動備份按鈕
+    const bkupBtn=document.createElement('button');
+    bkupBtn.textContent='💾 立即備份當前資料';
+    bkupBtn.style.cssText='width:100%;padding:10px;border-radius:9px;border:1px solid #243d55;background:#152536;color:#e8f4fd;font-size:.82rem;cursor:pointer;margin-bottom:16px;';
+    bkupBtn.onclick=()=>{saveLocalBackup('manual');setStatus('✅ 已備份');};
+    box.appendChild(bkupBtn);
+
+    // ── 隱藏功能區 ──
+    const hidLbl2=document.createElement('div');
+    hidLbl2.style.cssText='font-size:.7rem;color:#6a8fa8;letter-spacing:1.5px;margin:0 0 10px;text-transform:uppercase;';
+    hidLbl2.textContent='隱藏功能';
+    box.appendChild(hidLbl2);
 
     // 可切換的隱藏功能清單
     const HIDDEN_FEATURES=[
@@ -2078,79 +2158,82 @@ fixVH();
 // 齒輪按鈕
 document.getElementById('sync-btn').addEventListener('click',openSyncModal);
 
-// ── 自動同步引擎 ───────────────────────────────────
-let _pushTimer=null, _pullTimer=null, _syncing=false;
-let _lastUpdated=''; // 記錄最後看到的 _updated，只在不同時才 render
+// ── 被動同步引擎（單機為主，有觸發條件才同步）─────────
+let _syncing=false;
+let _lastUpdated='';
 
-// 改資料時 debounced push（使用者停手 1.5 秒後推送）
+// 改資料時「不」自動推送 — 留給使用者手動操作或下次觸發時機
 function schedulePush(){
-  if(!getSyncEnabled()||!getApiKey()||!getSyncBin())return;
-  clearTimeout(_pushTimer);
-  _pushTimer=setTimeout(async()=>{
-    if(_syncing)return;
-    _syncing=true;
-    await syncPush();
-    _syncing=false;
-  },1500);
+  // no-op：被動模式下不自動推送
+  // 只標記本機有未同步變動
+  LS.set('fm_dirty',true);
 }
 
-// 定期 pull（App 開著時每 15 秒檢查一次對方有沒有更新）
-async function autoPull(){
+// 被動 pull：只在觸發時呼叫一次（不定時輪詢）
+async function passiveSync(reason){
   if(!getSyncEnabled()||!getApiKey()||!getSyncBin())return;
   if(_syncing||document.hidden)return;
+  if(!navigator.onLine)return; // 沒網路不同步
   _syncing=true;
   try{
     const key=getApiKey(),binId=getSyncBin();
     const r=await fetch(JBIN+'/b/'+binId+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'}});
     if(r.ok){
       const cloud=await r.json();
-      // 只有當雲端 _updated 比本機看過的新才套用
-      if(cloud._updated&&cloud._updated!==_lastUpdated){
-        _lastUpdated=cloud._updated;
-        const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
-        // 合併模式：避免覆蓋本機新增但尚未推送的資料
-        let changed=false;
-        ['members','categories','expenses'].forEach(k=>{
-          if(cloud[k]!==undefined){
-            const before=JSON.stringify(S[k]||[]);
-            const merged=mergeData(S[k],cloud[k],true);
-            if(JSON.stringify(merged)!==before){S[k]=merged;LS.set('fm_'+KM[k],merged);changed=true;}
-            else if(before!==JSON.stringify(cloud[k])){S[k]=merged;LS.set('fm_'+KM[k],merged);changed=true;}
-          }
-        });
-        ['contribs','allocs','extras'].forEach(k=>{
-          if(cloud[k]!==undefined){
-            const merged=mergeObj(S[k],cloud[k]);
-            if(JSON.stringify(merged)!==JSON.stringify(S[k])){S[k]=merged;LS.set('fm_'+KM[k],merged);changed=true;}
-          }
-        });
-        if(changed){
-          recordSync();
-          render();
-          // 若本機有比雲端多的，順便推回去
-          setTimeout(()=>{if(!_syncing)syncPush();},800);
+      const dirty=LS.get('fm_dirty',false);
+      // 雲端沒變 且 本機沒變 → 跳過
+      if(cloud._updated===_lastUpdated&&!dirty){_syncing=false;return;}
+
+      saveLocalBackup('sync-'+reason);
+      const KM={members:'mem',contribs:'cont',categories:'cats',allocs:'alloc',expenses:'exps',extras:'extras'};
+      let changed=false;
+
+      // 合併雲端資料到本機
+      ['members','categories','expenses'].forEach(k=>{
+        if(cloud[k]!==undefined){
+          const merged=mergeData(S[k],cloud[k],true);
+          if(JSON.stringify(merged)!==JSON.stringify(S[k])){S[k]=merged;LS.set('fm_'+KM[k],merged);changed=true;}
         }
+      });
+      ['contribs','allocs','extras'].forEach(k=>{
+        if(cloud[k]!==undefined){
+          const merged=mergeMonthObj(S[k],cloud[k]);
+          if(JSON.stringify(merged)!==JSON.stringify(S[k])){S[k]=merged;LS.set('fm_'+KM[k],merged);changed=true;}
+        }
+      });
+
+      _lastUpdated=cloud._updated||'';
+      if(changed)render();
+
+      // 若本機有變動（dirty）或合併後資料與雲端不同 → 推回雲端
+      if(dirty||changed){
+        _syncing=false;
+        await syncPush();
+        LS.set('fm_dirty',false);
+        return;
       }
     }
   }catch(e){}
   _syncing=false;
 }
 
-// 視窗變可見時立即同步一次（從背景回來）
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoPull();});
-
-// 每 15 秒定期檢查
-_pullTimer=setInterval(autoPull,15000);
+// ── 同步觸發時機 ──
+// 1. App 開啟時（下方的啟動區）
+// 2. 從背景切回前景時
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden)passiveSync('visible');
+});
+// 3. 網路從離線恢復時
+window.addEventListener('online',()=>passiveSync('online'));
 
 // 每 30 秒更新燈號顏色
 setInterval(updateLastSyncLabel,30000);
 
-// 啟動：先 pull 一次再 render
+// 啟動：先同步一次（合併+推回）
 (async()=>{
   updateLastSyncLabel();
-  if(getSyncEnabled()&&getApiKey()&&getSyncBin()){
-    const r=await syncPull();
-    if(r.ok){_lastUpdated=now_();render();return;}
+  if(getSyncEnabled()&&getApiKey()&&getSyncBin()&&navigator.onLine){
+    await passiveSync('startup');
   }
   render();
 })();
