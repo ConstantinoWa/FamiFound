@@ -85,7 +85,7 @@ textarea{resize:none;height:52px;}
   <div id="hdr" style="background:#152536;border-bottom:1px solid #243d55;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div>
-        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04242033</div>
+        <div style="font-size:1rem;font-weight:700;color:#6a8fa8;letter-spacing:1px;">💰 v04261114</div>
         <div id="last-sync" style="font-size:.62rem;color:#2dd4bf;margin-top:1px;line-height:1;padding-left:1.45em;display:flex;align-items:center;gap:5px;"></div>
       </div>
       <button id="sync-btn" style="background:none;border:none;color:#6a8fa8;font-size:1.15rem;cursor:pointer;padding:2px 4px;line-height:1;" title="同步設定">⚙️</button>
@@ -2041,9 +2041,11 @@ async function sendHeartbeat(){
   if(!getSyncEnabled()||!getSyncBin())return false;
   const hbId=await ensureHeartbeatBin();
   if(!hbId)return false;
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),8000); // 8 秒逾時
   try{
     // 讀取目前 heartbeat 資料
-    const r=await fetch(JBIN+'/b/'+hbId+'/latest',{headers:{'X-Master-Key':JBIN_KEY,'X-Bin-Meta':'false'}});
+    const r=await fetch(JBIN+'/b/'+hbId+'/latest',{headers:{'X-Master-Key':JBIN_KEY,'X-Bin-Meta':'false'},signal:ctrl.signal});
     let data={peers:{}};
     if(r.ok)data=await r.json();
     if(!data.peers)data.peers={};
@@ -2058,9 +2060,10 @@ async function sendHeartbeat(){
       if(k!==_myId&&now-data.peers[k]<30*1000)peerActive=true;
     });
     // 寫回心跳
-    await fetch(JBIN+'/b/'+hbId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JBIN_KEY,'X-Bin-Versioning':'false'},body:JSON.stringify(data)});
+    await fetch(JBIN+'/b/'+hbId,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JBIN_KEY,'X-Bin-Versioning':'false'},body:JSON.stringify(data),signal:ctrl.signal});
+    clearTimeout(timer);
     return peerActive;
-  }catch(e){return false;}
+  }catch(e){clearTimeout(timer);return false;}
 }
 
 // 心跳 + 偵測循環：每 20 秒一次
@@ -2134,10 +2137,32 @@ document.addEventListener('visibilitychange',()=>{
 window.addEventListener('online',()=>heartbeatLoop());
 
 // 啟動：直接 render 本機資料；若已配對，背景啟動心跳
-updateLastSyncLabel();
-render();
+// 全域錯誤捕捉：任何未處理錯誤都不會讓畫面卡住
+window.addEventListener('error',e=>{console.error('全域錯誤：',e.message,e.error);});
+window.addEventListener('unhandledrejection',e=>{console.error('未處理 Promise：',e.reason);});
+
+try{
+  updateLastSyncLabel();
+}catch(e){console.error('updateLastSyncLabel error:',e);}
+
+try{
+  render();
+}catch(e){
+  console.error('render error:',e);
+  // 渲染失敗時顯示緊急救援畫面
+  const app=document.getElementById('app');
+  if(app){
+    app.innerHTML='<div style="padding:20px;color:#e8f4fd;font-family:system-ui;">'+
+      '<h3 style="color:#f87171;">⚠️ 載入時發生錯誤</h3>'+
+      '<p style="font-size:.85rem;color:#6a8fa8;">錯誤訊息：'+(e.message||e)+'</p>'+
+      '<button onclick="if(confirm(\'清除本機資料？此動作無法復原。\'))localStorage.clear();location.reload();" style="padding:10px 20px;background:#f87171;color:#fff;border:none;border-radius:8px;font-size:.9rem;cursor:pointer;margin-top:12px;">清除本機資料並重啟</button>'+
+      '<button onclick="location.reload()" style="padding:10px 20px;background:#243d55;color:#e8f4fd;border:none;border-radius:8px;font-size:.9rem;cursor:pointer;margin-top:12px;margin-left:8px;">重新載入</button>'+
+      '</div>';
+  }
+}
+
 if(getSyncEnabled()&&getSyncBin()&&navigator.onLine){
-  setTimeout(heartbeatLoop,1000); // 1 秒後發第一次心跳
+  setTimeout(()=>{try{heartbeatLoop();}catch(e){console.error('heartbeat error:',e);}},1000);
 }
 </script>
 </body>
